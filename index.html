@@ -952,9 +952,9 @@ Sois direct, précis, basé uniquement sur les données. Utilise les emojis avec
 
   const claudeKey = localStorage.getItem('lol_scout_claude_key') || '';
   if (!claudeKey) {
-    const k = prompt('Entre ta clé API Claude (starts with sk-ant-):
+    const k = prompt('Entre ta clé API Claude (sk-ant-...)
 https://console.anthropic.com/');
-    if (!k) { btn.disabled=false; btn.textContent='⚡ GÉNÉRER L'ANALYSE'; return; }
+    if (!k) { btn.disabled=false; btn.textContent="⚡ GÉNÉRER L'ANALYSE"; return; }
     localStorage.setItem('lol_scout_claude_key', k);
   }
 
