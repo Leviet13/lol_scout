@@ -433,7 +433,11 @@ let globalMatchData = null; // stored for AI analysis
 // ── API KEY ──────────────────────────────────────────────────────────
 function saveApiKey() {
   const k = document.getElementById('api-key-input').value.trim();
-  if (!k.startsWith('RGAPI-')) return alert('Clé invalide. Elle doit commencer par RGAPI-');
+  if (!k) return alert('Entre ta clé API Riot.');
+  // Accepte toutes les clés RGAPI (dev ou personal)
+  if (!k.includes('RGAPI')) {
+    if (!confirm('Ta clé ne contient pas "RGAPI" — es-tu sûr de vouloir continuer ?')) return;
+  }
   localStorage.setItem('lol_scout_api_key', k);
   API_KEY = k;
   document.getElementById('api-modal').style.display = 'none';
