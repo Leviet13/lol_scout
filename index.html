@@ -289,6 +289,8 @@
     <button class="tab-btn active" onclick="switchTab('overview')">OVERVIEW</button>
     <button class="tab-btn" onclick="switchTab('phases')">EARLY / MID / LATE</button>
     <button class="tab-btn" onclick="switchTab('highlights')">HIGHLIGHTS</button>
+    <button class="tab-btn" onclick="switchTab('mastery')">🏆 MAÎTRISE</button>
+    <button class="tab-btn" onclick="switchTab('live')">🔴 LIVE</button>
     <button class="tab-btn" onclick="switchTab('ai')">🤖 ANALYSE IA</button>
   </div>
 
@@ -357,6 +359,38 @@
     </div>
   </div>
 
+  <!-- TAB: MASTERY -->
+  <div class="tab-content" id="tab-mastery">
+    <div class="grid-2">
+      <div class="panel">
+        <div class="panel-title">TOP MAÎTRISES</div>
+        <div id="mastery-list"><div style="color:rgba(200,170,110,.4);font-size:.85rem;padding:20px;text-align:center;font-family:'Share Tech Mono',monospace">Chargement...</div></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">SCORE TOTAL</div>
+        <div id="mastery-score" style="text-align:center;padding:30px">
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:3rem;color:var(--gold)" id="mastery-total">—</div>
+          <div style="font-size:.8rem;letter-spacing:2px;color:rgba(200,170,110,.5)">POINTS DE MAÎTRISE TOTAUX</div>
+        </div>
+        <canvas id="chartMastery" style="max-height:200px"></canvas>
+      </div>
+    </div>
+    <div class="panel grid-full">
+      <div class="panel-title">CHALLENGES</div>
+      <div id="challenges-list"><div style="color:rgba(200,170,110,.4);font-size:.85rem;padding:20px;text-align:center;font-family:'Share Tech Mono',monospace">Chargement...</div></div>
+    </div>
+  </div>
+
+  <!-- TAB: LIVE -->
+  <div class="tab-content" id="tab-live">
+    <div class="panel grid-full" id="live-panel">
+      <div style="text-align:center;padding:60px">
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:4px;color:rgba(200,170,110,.4);margin-bottom:8px">VÉRIFICATION EN COURS...</div>
+        <div style="font-size:.8rem;font-family:'Share Tech Mono',monospace;color:rgba(200,170,110,.3)">Recherche d'une partie active</div>
+      </div>
+    </div>
+  </div>
+
   <!-- TAB: AI -->
   <div class="tab-content" id="tab-ai">
     <div class="ai-panel" id="ai-container">
@@ -414,12 +448,14 @@ window.onload = () => {
 
 // ── TABS ─────────────────────────────────────────────────────────────
 function switchTab(name) {
-  document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-  const tabs = ['overview','phases','highlights','ai'];
+  const tabs = ['overview','phases','highlights','mastery','live','ai'];
   const idx = tabs.indexOf(name);
   document.querySelectorAll('.tab-btn')[idx].classList.add('active');
   document.getElementById('tab-'+name).classList.add('active');
+  if (name === 'mastery' && globalMatchData) loadMastery();
+  if (name === 'live' && globalMatchData) loadLiveGame();
 }
 
 // ── RIOT API ─────────────────────────────────────────────────────────
@@ -910,22 +946,33 @@ Donne une analyse structurée avec:
 
 Sois direct, précis, basé uniquement sur les données. Utilise les emojis avec parcimonie.`;
 
+  const claudeKey = localStorage.getItem('lol_scout_claude_key') || '';
+  if (!claudeKey) {
+    const k = prompt('Entre ta clé API Claude (starts with sk-ant-):
+https://console.anthropic.com/');
+    if (!k) { btn.disabled=false; btn.textContent='⚡ GÉNÉRER L'ANALYSE'; return; }
+    localStorage.setItem('lol_scout_claude_key', k);
+  }
+
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch(PROXY_URL + '/anthropic', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        apiKey: localStorage.getItem('lol_scout_claude_key'),
         model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
+        max_tokens: 1500,
         messages: [{ role: 'user', content: prompt }]
       })
     });
 
     const data = await response.json();
+    if (data.error) throw new Error(data.error);
     const text = data.content?.find(b=>b.type==='text')?.text || '';
     renderAIOutput(text);
   } catch(e) {
-    document.getElementById('ai-output').innerHTML = `<div style="color:var(--red);font-family:'Share Tech Mono',monospace;font-size:.85rem;padding:20px">Erreur lors de la génération: ${e.message}</div>`;
+    localStorage.removeItem('lol_scout_claude_key');
+    document.getElementById('ai-output').innerHTML = `<div style="color:var(--red);font-family:'Share Tech Mono',monospace;font-size:.85rem;padding:20px">Erreur lors de la génération: ${e.message}<br><br>Clique à nouveau pour réessayer avec une nouvelle clé.</div>`;
   } finally {
     btn.disabled = false;
     btn.textContent = '🔄 REGÉNÉRER';
@@ -1031,6 +1078,204 @@ function generateFakeMatches() {
     });
   }
   return matches;
+}
+
+// ── MASTERY ──────────────────────────────────────────────────────────
+async function loadMastery() {
+  if (!globalMatchData) return;
+  const { account, summoner, puuid } = globalMatchData;
+  const region = document.getElementById('region-select').value;
+  const routing = RIOT_ROUTING[region];
+
+  try {
+    const [masteries, challenges] = await Promise.all([
+      riotFetch(`https://${routing.platform}.api.riotgames.com/lol/champion-mastery/v4/champion-masteries/by-puuid/${puuid}/top?count=10`),
+      riotFetch(`https://${routing.platform}.api.riotgames.com/lol/challenges/v1/player-data/${puuid}`).catch(() => null),
+    ]);
+
+    // Total mastery score
+    const totalScore = masteries.reduce((a, m) => a + m.championPoints, 0);
+    document.getElementById('mastery-total').textContent = totalScore.toLocaleString();
+
+    // Champion names from DDragon
+    const ddUrl = `https://ddragon.leagueoflegends.com/cdn/${VERSION}/data/en_US/champion.json`;
+    const ddRes = await fetch(ddUrl);
+    const ddData = await ddRes.json();
+    const champById = {};
+    Object.values(ddData.data).forEach(c => { champById[c.key] = c.id; });
+
+    // Mastery list
+    document.getElementById('mastery-list').innerHTML = masteries.map((m, i) => {
+      const champName = champById[m.championId] || 'Unknown';
+      const iconUrl = `https://ddragon.leagueoflegends.com/cdn/${VERSION}/img/champion/${champName}.png`;
+      const pts = m.championPoints.toLocaleString();
+      const grade = m.championLevel >= 7 ? 'S' : m.championLevel >= 6 ? 'A' : m.championLevel >= 5 ? 'B' : 'C';
+      const gradeColor = grade==='S'?'#FFD700':grade==='A'?'var(--green)':grade==='B'?'var(--blue-accent)':'var(--gold)';
+      const chest = m.chestGranted ? '📦' : '⬜';
+      return `
+        <div style="display:grid;grid-template-columns:36px 36px 1fr auto auto auto;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid rgba(200,170,110,.07)">
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:1.2rem;color:rgba(200,170,110,.3)">#${i+1}</div>
+          <div class="champ-row-icon"><img src="${iconUrl}" onerror="this.parentNode.textContent='${champName.slice(0,3)}'" /></div>
+          <div>
+            <div style="font-weight:700;font-size:.9rem">${champName}</div>
+            <div style="font-size:.7rem;color:rgba(200,170,110,.5);font-family:'Share Tech Mono',monospace">Niveau ${m.championLevel} ${chest}</div>
+          </div>
+          <div style="font-family:'Share Tech Mono',monospace;font-size:.8rem;color:rgba(200,170,110,.6)">${pts} pts</div>
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:1rem;color:${gradeColor}">${grade}</div>
+          <div style="width:80px">
+            <div style="height:4px;background:rgba(255,255,255,.05);border-radius:2px">
+              <div style="height:100%;border-radius:2px;background:${gradeColor};width:${Math.min(100, m.championPoints/100000*100)}%"></div>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    // Mastery chart
+    if (charts.mastery) charts.mastery.destroy();
+    charts.mastery = new Chart(document.getElementById('chartMastery'), {
+      type: 'bar',
+      data: {
+        labels: masteries.slice(0,5).map(m => champById[m.championId] || '?'),
+        datasets: [{
+          label: 'Points',
+          data: masteries.slice(0,5).map(m => m.championPoints),
+          backgroundColor: 'rgba(200,170,110,.6)',
+          borderColor: 'var(--gold)',
+          borderWidth: 1,
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: 'rgba(200,170,110,.6)' }, grid: { color: 'rgba(200,170,110,.05)' } },
+          y: { ticks: { color: 'rgba(200,170,110,.4)', callback: v => (v/1000).toFixed(0)+'k' }, grid: { color: 'rgba(200,170,110,.05)' } }
+        }
+      }
+    });
+
+    // Challenges
+    if (challenges && challenges.totalPoints) {
+      const topChallenges = (challenges.challenges || [])
+        .filter(c => c.percentile && c.percentile < 0.1)
+        .sort((a,b) => a.percentile - b.percentile)
+        .slice(0, 8);
+
+      document.getElementById('challenges-list').innerHTML = `
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
+          <div style="background:rgba(200,170,110,.05);border:1px solid var(--border);padding:16px;text-align:center">
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:1.8rem;color:var(--gold)">${challenges.totalPoints?.current?.toLocaleString()||0}</div>
+            <div style="font-size:.7rem;letter-spacing:2px;color:rgba(200,170,110,.5)">POINTS TOTAL</div>
+          </div>
+          <div style="background:rgba(200,170,110,.05);border:1px solid var(--border);padding:16px;text-align:center">
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:1.8rem;color:var(--blue-accent)">${challenges.totalPoints?.level||'—'}</div>
+            <div style="font-size:.7rem;letter-spacing:2px;color:rgba(200,170,110,.5)">NIVEAU GLOBAL</div>
+          </div>
+          <div style="background:rgba(200,170,110,.05);border:1px solid var(--border);padding:16px;text-align:center">
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:1.8rem;color:var(--green)">${(challenges.challenges||[]).filter(c=>c.level==='MASTER'||c.level==='GRANDMASTER'||c.level==='CHALLENGER').length}</div>
+            <div style="font-size:.7rem;letter-spacing:2px;color:rgba(200,170,110,.5)">MASTER+</div>
+          </div>
+          <div style="background:rgba(200,170,110,.05);border:1px solid var(--border);padding:16px;text-align:center">
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:1.8rem;color:var(--purple)">${(challenges.challenges||[]).length}</div>
+            <div style="font-size:.7rem;letter-spacing:2px;color:rgba(200,170,110,.5)">DÉFIS ACTIFS</div>
+          </div>
+        </div>
+        ${topChallenges.length > 0 ? `
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:.9rem;letter-spacing:2px;color:var(--gold);margin-bottom:10px">TOP DÉFIS (TOP ${(topChallenges[0]?.percentile*100||0).toFixed(1)}% MONDIAL)</div>
+          ${topChallenges.map(c => `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(200,170,110,.07)">
+              <span style="font-size:.85rem">${c.challengeId}</span>
+              <div style="display:flex;gap:10px;align-items:center">
+                <span style="font-family:'Share Tech Mono',monospace;font-size:.8rem;color:var(--gold)">${c.value}</span>
+                <span style="font-size:.7rem;padding:2px 8px;background:rgba(155,89,182,.15);border:1px solid rgba(155,89,182,.4);color:var(--purple);font-family:'Share Tech Mono',monospace">${c.level}</span>
+                <span style="font-size:.7rem;color:rgba(200,170,110,.4);font-family:'Share Tech Mono',monospace">Top ${(c.percentile*100).toFixed(1)}%</span>
+              </div>
+            </div>
+          `).join('')}
+        ` : '<div style="color:rgba(200,170,110,.4);font-size:.8rem;font-family:Share Tech Mono,monospace">Pas de challenges top 10% trouvés</div>'}
+      `;
+    } else {
+      document.getElementById('challenges-list').innerHTML = '<div style="color:rgba(200,170,110,.4);font-size:.8rem;padding:10px;font-family:Share Tech Mono,monospace">Données challenges non disponibles pour cette région</div>';
+    }
+
+  } catch(e) {
+    document.getElementById('mastery-list').innerHTML = `<div style="color:var(--red);font-family:'Share Tech Mono',monospace;font-size:.8rem;padding:20px">Erreur: ${e.message}</div>`;
+  }
+}
+
+// ── LIVE GAME ────────────────────────────────────────────────────────
+async function loadLiveGame() {
+  if (!globalMatchData) return;
+  const { puuid, account } = globalMatchData;
+  const region = document.getElementById('region-select').value;
+  const routing = RIOT_ROUTING[region];
+
+  document.getElementById('live-panel').innerHTML = `
+    <div style="text-align:center;padding:40px">
+      <div class="loader-ring" style="margin:0 auto 16px"></div>
+      <div style="font-family:'Share Tech Mono',monospace;font-size:.85rem;color:var(--gold);letter-spacing:2px">RECHERCHE D'UNE PARTIE ACTIVE...</div>
+    </div>`;
+
+  try {
+    const game = await riotFetch(`https://${routing.platform}.api.riotgames.com/lol/spectator/v5/active-games/by-summoner/${puuid}`);
+
+    // En game !
+    const me = game.participants.find(p => p.puuid === puuid);
+    const myTeam = game.participants.filter(p => p.teamId === me?.teamId);
+    const enemyTeam = game.participants.filter(p => p.teamId !== me?.teamId);
+    const gameDur = Math.floor(game.gameLength / 60) + ':' + String(game.gameLength % 60).padStart(2,'0');
+    const champIcon = `https://ddragon.leagueoflegends.com/cdn/${VERSION}/img/champion/${me?.championName||'Aatrox'}.png`;
+
+    const teamHtml = (team, title, color) => `
+      <div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:.9rem;letter-spacing:3px;color:${color};margin-bottom:10px">${title}</div>
+        ${team.map(p => {
+          const ic = `https://ddragon.leagueoflegends.com/cdn/${VERSION}/img/champion/${p.championName}.png`;
+          const isMe = p.puuid === puuid;
+          return `<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid rgba(200,170,110,.07);background:${isMe?'rgba(200,170,110,.05)':''}">
+            <div class="champ-row-icon" style="border-color:${color}"><img src="${ic}" onerror="this.parentNode.textContent='${p.championName?.slice(0,3)}'" /></div>
+            <span style="font-weight:${isMe?700:400};font-size:.85rem">${p.riotId||p.summonerName||'Joueur'}${isMe?' ◀':''}</span>
+          </div>`;
+        }).join('')}
+      </div>
+    `;
+
+    document.getElementById('live-panel').innerHTML = `
+      <div style="display:flex;align-items:center;gap:16px;margin-bottom:24px;padding:16px;background:rgba(75,181,94,.05);border:1px solid rgba(75,181,94,.3)">
+        <div style="width:12px;height:12px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 1s ease-in-out infinite"></div>
+        <div>
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:3px;color:var(--green)">EN PARTIE ACTUELLEMENT</div>
+          <div style="font-size:.8rem;color:rgba(200,170,110,.6);font-family:'Share Tech Mono',monospace">${game.gameMode} — ${gameDur} écoulées</div>
+        </div>
+        <div style="margin-left:auto;display:flex;align-items:center;gap:12px">
+          <div class="champ-icon" style="border-color:var(--green)"><img src="${champIcon}" /></div>
+          <div>
+            <div style="font-weight:700">${me?.championName||'?'}</div>
+            <div style="font-size:.7rem;color:rgba(200,170,110,.5)">${account.gameName}</div>
+          </div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
+        ${teamHtml(myTeam, 'TON ÉQUIPE', 'var(--blue-accent)')}
+        ${teamHtml(enemyTeam, 'ÉQUIPE ENNEMIE', 'var(--red)')}
+      </div>
+      <div style="margin-top:16px;text-align:center">
+        <button onclick="loadLiveGame()" style="background:transparent;border:1px solid var(--border);color:var(--gold);font-family:'Bebas Neue',sans-serif;font-size:.9rem;letter-spacing:2px;padding:8px 20px;cursor:pointer">🔄 ACTUALISER</button>
+      </div>
+    `;
+
+  } catch(e) {
+    // Not in game
+    document.getElementById('live-panel').innerHTML = `
+      <div style="text-align:center;padding:60px">
+        <div style="font-size:3rem;margin-bottom:16px">💤</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:4px;color:rgba(200,170,110,.5);margin-bottom:8px">${account.gameName} N'EST PAS EN PARTIE</div>
+        <div style="font-size:.8rem;font-family:'Share Tech Mono',monospace;color:rgba(200,170,110,.3);margin-bottom:20px">Aucune partie active détectée</div>
+        <button onclick="loadLiveGame()" style="background:transparent;border:1px solid var(--border);color:var(--gold);font-family:'Bebas Neue',sans-serif;font-size:.9rem;letter-spacing:2px;padding:10px 24px;cursor:pointer">🔄 VÉRIFIER À NOUVEAU</button>
+      </div>
+    `;
+  }
 }
 
 // ── HELPERS ──────────────────────────────────────────────────────────
