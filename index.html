@@ -399,7 +399,7 @@
           <div style="font-family:'Bebas Neue',sans-serif;font-size:1.4rem;letter-spacing:3px;color:var(--gold)">ANALYSE IA APPROFONDIE</div>
           <div style="font-size:.8rem;color:rgba(200,170,110,.5);font-family:'Share Tech Mono',monospace">Powered by Claude AI — basé sur tes 10 dernières parties</div>
         </div>
-        <button class="ai-btn" id="ai-btn" onclick="generateAIAnalysis()">⚡ GÉNÉRER L'ANALYSE</button>
+        <button class="ai-btn" id="ai-btn" onclick="generateAIAnalysis()">⚡ GÉNÉRER L&#39;ANALYSE</button>
       </div>
       <div id="ai-output">
         <div style="text-align:center;padding:60px;color:rgba(200,170,110,.3);">
@@ -954,7 +954,7 @@ Sois direct, précis, basé uniquement sur les données. Utilise les emojis avec
   if (!claudeKey) {
     const k = prompt('Entre ta clé API Claude (sk-ant-...)
 https://console.anthropic.com/');
-    if (!k) { btn.disabled=false; btn.textContent="⚡ GÉNÉRER L'ANALYSE"; return; }
+    if (!k) { btn.disabled=false; btn.textContent="⚡ GÉNÉRER L&#39;ANALYSE"; return; }
     localStorage.setItem('lol_scout_claude_key', k);
   }
 
