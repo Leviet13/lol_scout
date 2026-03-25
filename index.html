@@ -379,16 +379,16 @@
 
 <script>
 const RIOT_ROUTING = {
-  euw1:{platform:'euw1',region:'europe'},
-  eun1:{platform:'eun1',region:'europe'},
-  na1:{platform:'na1',region:'americas'},
-  kr:{platform:'kr',region:'asia'},
-  br1:{platform:'br1',region:'americas'},
-  vn2:{platform:'vn2',region:'sea'},
-  sg2:{platform:'sg2',region:'sea'},
-  th2:{platform:'th2',region:'sea'},
-  tw2:{platform:'tw2',region:'sea'},
-  jp1:{platform:'jp1',region:'asia'},
+  euw1:{platform:'euw1',region:'europe',account:'europe',match:'europe'},
+  eun1:{platform:'eun1',region:'europe',account:'europe',match:'europe'},
+  na1:{platform:'na1',region:'americas',account:'americas',match:'americas'},
+  kr:{platform:'kr',region:'asia',account:'asia',match:'asia'},
+  br1:{platform:'br1',region:'americas',account:'americas',match:'americas'},
+  vn2:{platform:'vn2',region:'sea',account:'asia',match:'sea'},
+  sg2:{platform:'sg2',region:'sea',account:'asia',match:'sea'},
+  th2:{platform:'th2',region:'sea',account:'asia',match:'sea'},
+  tw2:{platform:'tw2',region:'sea',account:'asia',match:'sea'},
+  jp1:{platform:'jp1',region:'asia',account:'asia',match:'asia'},
 };
 
 const VERSION = '14.10.1';
@@ -452,19 +452,19 @@ async function searchSummoner() {
     let gameName, tagLine;
     if (raw.includes('#')) { [gameName, tagLine] = raw.split('#'); } else { gameName = raw; tagLine = region.toUpperCase(); }
 
-    const account = await riotFetch(`https://${routing.region}.api.riotgames.com/riot/account/v1/accounts/by-riot-id/${encodeURIComponent(gameName)}/${encodeURIComponent(tagLine)}`);
+    const account = await riotFetch(`https://${routing.account}.api.riotgames.com/riot/account/v1/accounts/by-riot-id/${encodeURIComponent(gameName)}/${encodeURIComponent(tagLine)}`);
     setLoading(true, 'CHARGEMENT DU PROFIL...');
     const summoner = await riotFetch(`https://${routing.platform}.api.riotgames.com/lol/summoner/v4/summoners/by-puuid/${account.puuid}`);
     const ranked = await riotFetch(`https://${routing.platform}.api.riotgames.com/lol/league/v4/entries/by-summoner/${summoner.id}`);
     const soloQ = ranked.find(r => r.queueType === 'RANKED_SOLO_5x5') || null;
 
     setLoading(true, 'CHARGEMENT DE L\'HISTORIQUE (20 PARTIES)...');
-    const matchIds = await riotFetch(`https://${routing.region}.api.riotgames.com/lol/match/v5/matches/by-puuid/${account.puuid}/ids?queue=420&type=ranked&start=0&count=20`);
+    const matchIds = await riotFetch(`https://${routing.match}.api.riotgames.com/lol/match/v5/matches/by-puuid/${account.puuid}/ids?queue=420&type=ranked&start=0&count=20`);
 
     const matchDetails = [];
     for (let i = 0; i < Math.min(matchIds.length, 20); i++) {
       setLoading(true, `ANALYSE PARTIE ${i+1}/${Math.min(matchIds.length,20)}...`);
-      const m = await riotFetch(`https://${routing.region}.api.riotgames.com/lol/match/v5/matches/${matchIds[i]}`);
+      const m = await riotFetch(`https://${routing.match}.api.riotgames.com/lol/match/v5/matches/${matchIds[i]}`);
       matchDetails.push(m);
     }
 
