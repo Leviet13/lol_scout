@@ -55,19 +55,129 @@ background:linear-gradient(90deg, transparent, var(–gold), var(–blue-accent)
 .logo-sub { font-family:‘Share Tech Mono’,monospace; font-size:.55rem; letter-spacing:4px; color:rgba(200,155,60,.4); display:block; margin-top:-4px; }
 .region-badge { font-family:‘Share Tech Mono’,monospace; font-size:.65rem; color:var(–blue-accent); border:1px solid rgba(0,200,255,.4); padding:4px 10px; letter-spacing:2px; background:rgba(0,200,255,.05); }
 
-/* SEARCH */
-.search-section { position:relative; z-index:10; display:flex; flex-direction:column; align-items:center; padding:48px 20px 28px; }
-.search-title { font-family:‘Bebas Neue’,sans-serif; font-size:2.8rem; letter-spacing:4px; color:var(–gold-light); margin-bottom:6px; text-align:center; line-height:1; }
-.search-title span { color:var(–blue-accent); filter:drop-shadow(0 0 16px var(–blue-accent)); }
-.search-sub { font-size:.8rem; color:rgba(200,155,60,.5); letter-spacing:3px; margin-bottom:28px; text-transform:uppercase; text-align:center; font-family:‘Share Tech Mono’,monospace; }
-.search-bar { display:flex; width:100%; max-width:620px; position:relative; }
-.search-bar::before { content:’’; position:absolute; inset:-1px; background:linear-gradient(90deg,var(–gold-dark),var(–blue-accent),var(–gold-dark)); z-index:-1; border-radius:2px; }
-.search-input { flex:1; background:var(–blue-dark); border:none; color:var(–gold-light); font-family:‘Share Tech Mono’,monospace; font-size:1rem; padding:14px 20px; outline:none; letter-spacing:1px; }
-.search-input::placeholder { color:rgba(200,170,110,.3); }
-.region-select { background:var(–blue-mid); border:none; border-left:1px solid var(–border); color:var(–gold); font-family:‘Rajdhani’,sans-serif; font-size:.9rem; padding:14px 16px; outline:none; cursor:pointer; }
-.search-btn { background:linear-gradient(135deg,var(–gold-dark) 0%,var(–gold) 100%); border:none; color:var(–blue-deep); font-family:‘Bebas Neue’,sans-serif; font-size:1.1rem; letter-spacing:3px; padding:14px 28px; cursor:pointer; transition:all .2s; white-space:nowrap; }
-.search-btn:hover { background:linear-gradient(135deg,var(–gold) 0%,var(–gold-light) 100%); box-shadow:0 0 20px rgba(200,170,110,.4); }
-.api-note { margin-top:12px; font-size:.75rem; color:rgba(200,170,110,.4); font-family:‘Share Tech Mono’,monospace; text-align:center; }
+/* HERO */
+.hero-section {
+position:relative; z-index:10;
+min-height:100svh;
+display:flex; flex-direction:column; align-items:center; justify-content:center;
+padding:80px 20px 40px;
+overflow:hidden;
+}
+
+.hero-bg-glow {
+position:absolute; inset:0; pointer-events:none;
+background:
+radial-gradient(ellipse 70% 50% at 50% 30%, rgba(0,200,255,0.08) 0%, transparent 70%),
+radial-gradient(ellipse 50% 60% at 20% 80%, rgba(200,155,60,0.06) 0%, transparent 60%),
+radial-gradient(ellipse 40% 40% at 80% 20%, rgba(168,85,247,0.05) 0%, transparent 60%);
+animation:glowPulse 6s ease-in-out infinite;
+}
+@keyframes glowPulse {
+0%,100% { opacity:1; }
+50% { opacity:0.6; }
+}
+
+.hero-content { text-align:center; margin-bottom:40px; position:relative; }
+
+.hero-badge {
+display:inline-block;
+font-family:‘Share Tech Mono’,monospace;
+font-size:.6rem; letter-spacing:3px;
+color:rgba(0,200,255,.6);
+border:1px solid rgba(0,200,255,.2);
+padding:5px 14px; margin-bottom:20px;
+background:rgba(0,200,255,.04);
+}
+
+.hero-title {
+font-family:‘Bebas Neue’,sans-serif;
+font-size:5rem; letter-spacing:6px;
+line-height:0.9;
+background:linear-gradient(135deg, #785A28 0%, #C89B3C 30%, #FFD700 50%, #C89B3C 70%, #785A28 100%);
+background-size:200% 100%;
+-webkit-background-clip:text; -webkit-text-fill-color:transparent;
+animation:shimmer 4s linear infinite;
+margin-bottom:4px;
+}
+.hero-title span {
+-webkit-text-fill-color:transparent;
+background:linear-gradient(135deg, #0088bb, #00C8FF, #00E5FF, #00C8FF);
+background-size:200% 100%;
+-webkit-background-clip:text;
+filter:drop-shadow(0 0 20px rgba(0,200,255,.5));
+animation:shimmer 3s linear infinite reverse;
+}
+@keyframes shimmer {
+0% { background-position:200% 0; }
+100% { background-position:-200% 0; }
+}
+
+.hero-subtitle {
+font-family:‘Rajdhani’,sans-serif;
+font-size:1.1rem; line-height:1.6;
+color:rgba(240,230,211,.5);
+letter-spacing:1px;
+margin-bottom:24px;
+}
+
+.hero-features {
+display:flex; gap:12px; justify-content:center; flex-wrap:wrap;
+margin-bottom:0;
+}
+.hero-feat {
+display:flex; align-items:center; gap:6px;
+font-family:‘Rajdhani’,sans-serif; font-size:.8rem; font-weight:600;
+letter-spacing:1px;
+color:rgba(200,155,60,.7);
+background:rgba(200,155,60,.05);
+border:1px solid rgba(200,155,60,.15);
+padding:5px 12px;
+}
+.hero-feat span { font-size:.9rem; }
+
+.search-wrap {
+position:relative; z-index:2;
+width:100%; max-width:560px;
+}
+
+.search-label {
+font-family:‘Share Tech Mono’,monospace;
+font-size:.65rem; letter-spacing:3px;
+color:rgba(200,155,60,.4);
+margin-bottom:8px; text-align:left;
+}
+
+.search-bar {
+display:flex; width:100%;
+box-shadow:0 8px 32px rgba(0,0,0,.6), 0 0 0 1px rgba(200,155,60,.2);
+}
+.search-input {
+flex:1; background:rgba(8,14,26,.95);
+border:none; border-right:1px solid rgba(200,155,60,.15);
+color:var(–gold-light); font-family:‘Share Tech Mono’,monospace;
+font-size:.95rem; padding:16px 18px; outline:none; letter-spacing:1px;
+min-width:0;
+}
+.search-input::placeholder { color:rgba(200,155,60,.25); }
+.search-input:focus { background:rgba(13,30,53,.95); }
+.region-select {
+background:rgba(13,30,53,.95);
+border:none; border-right:1px solid rgba(200,155,60,.15);
+color:var(–gold); font-family:‘Rajdhani’,sans-serif; font-weight:700;
+font-size:.9rem; padding:16px 12px; outline:none; cursor:pointer;
+-webkit-appearance:none; appearance:none;
+min-width:60px; text-align:center;
+}
+.search-btn {
+background:linear-gradient(135deg,#785A28,#C89B3C,#FFD700);
+border:none; color:#05080F;
+font-family:‘Bebas Neue’,sans-serif; font-size:1rem; letter-spacing:3px;
+padding:16px 20px; cursor:pointer; transition:all .2s; white-space:nowrap;
+font-weight:900;
+}
+.search-btn:hover { filter:brightness(1.15); box-shadow:0 0 24px rgba(200,155,60,.4); }
+.search-btn:active { transform:scale(.98); }
+.api-note { margin-top:10px; font-size:.62rem; color:rgba(200,155,60,.3); font-family:‘Share Tech Mono’,monospace; text-align:center; letter-spacing:1px; }
 
 /* MAIN */
 #main-content { position:relative; z-index:10; max-width:1300px; margin:0 auto; padding:0 24px 60px; display:none; }
@@ -249,13 +359,16 @@ header { padding:12px 16px; }
 .region-badge { font-size:.65rem; padding:3px 8px; }
 
 ```
-.search-section { padding:24px 16px 20px; }
-.search-title { font-size:.8rem; letter-spacing:4px; }
-.search-bar { flex-wrap:wrap; gap:0; }
-.search-input { width:100%; border-radius:0; font-size:.9rem; padding:12px 16px; }
-.region-select { flex:1; border-left:none; border-top:1px solid var(--border); padding:10px 12px; }
-.search-btn { flex:1; border-top:1px solid var(--border); padding:12px; font-size:.95rem; letter-spacing:2px; }
-.search-bar::before { border-radius:4px; }
+.hero-section { padding:70px 16px 30px; min-height:100svh; }
+.hero-title { font-size:3.5rem; letter-spacing:3px; }
+.hero-subtitle { font-size:.95rem; }
+.hero-features { gap:8px; }
+.hero-feat { font-size:.72rem; padding:4px 10px; }
+.hero-badge { font-size:.55rem; letter-spacing:2px; }
+.search-label { font-size:.6rem; }
+.search-input { font-size:.85rem; padding:14px 14px; }
+.region-select { padding:14px 10px; min-width:50px; }
+.search-btn { padding:14px 14px; font-size:.9rem; letter-spacing:2px; }
 
 #main-content { padding:0 12px 40px; }
 
@@ -352,28 +465,41 @@ canvas { max-height:200px; }
   </div>
 </header>
 
-<!-- SEARCH -->
+<!-- HERO -->
 
-<div class="search-section">
-  <div class="search-title">LOL<span>SCOUT</span></div>
-  <div class="search-sub">Analyse · Progression · Coaching IA</div>
-  <div class="search-bar">
-    <input class="search-input" id="summoner-input" type="text" placeholder="GameName#TAG (ex: yoantw#frddd)" />
-    <select class="region-select" id="region-select">
-      <option value="vn2">VN</option>
-      <option value="euw1">EUW</option>
-      <option value="eun1">EUNE</option>
-      <option value="na1">NA</option>
-      <option value="kr">KR</option>
-      <option value="br1">BR</option>
-      <option value="sg2">SG</option>
-      <option value="th2">TH</option>
-      <option value="tw2">TW</option>
-      <option value="jp1">JP</option>
-    </select>
-    <button class="search-btn" onclick="searchSummoner()">ANALYSER</button>
+<div class="hero-section">
+  <div class="hero-bg-glow"></div>
+  <div class="hero-content">
+    <div class="hero-badge">RANKED TRACKER VN · SEA · EUW · NA · KR</div>
+    <div class="hero-title">LOL<span>SCOUT</span></div>
+    <div class="hero-subtitle">Analyse tes parties.<br>Identifie tes failles.<br>Monte en elo.</div>
+    <div class="hero-features">
+      <div class="hero-feat"><span>📊</span>Stats temps réel</div>
+      <div class="hero-feat"><span>🤖</span>Coaching IA</div>
+      <div class="hero-feat"><span>🔴</span>Live game</div>
+      <div class="hero-feat"><span>🏆</span>Maîtrise</div>
+    </div>
   </div>
-  <div class="api-note">Les données proviennent directement de l'API officielle Riot Games.</div>
+  <div class="search-wrap">
+    <div class="search-label">ENTRE TON PSEUDO RIOT</div>
+    <div class="search-bar">
+      <input class="search-input" id="summoner-input" type="text" placeholder="GameName#TAG" />
+      <select class="region-select" id="region-select">
+        <option value="vn2">VN</option>
+        <option value="euw1">EUW</option>
+        <option value="eun1">EUNE</option>
+        <option value="na1">NA</option>
+        <option value="kr">KR</option>
+        <option value="br1">BR</option>
+        <option value="sg2">SG</option>
+        <option value="th2">TH</option>
+        <option value="tw2">TW</option>
+        <option value="jp1">JP</option>
+      </select>
+      <button class="search-btn" onclick="searchSummoner()">ANALYSER</button>
+    </div>
+    <div class="api-note">Données officielles Riot Games API · Clé personnelle requise</div>
+  </div>
 </div>
 
 <div id="error-box"></div>
