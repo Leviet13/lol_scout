@@ -9,39 +9,57 @@
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <style>
   :root {
-    --gold: #C8AA6E;
+    --gold: #C89B3C;
     --gold-light: #F0E6D3;
     --gold-dark: #785A28;
-    --blue-deep: #010A13;
-    --blue-dark: #0A1428;
-    --blue-mid: #0D2245;
-    --blue-accent: #0BC4E3;
-    --red: #C34B4B;
-    --green: #4BB55E;
-    --purple: #9B59B6;
-    --panel: rgba(10, 20, 40, 0.85);
-    --border: rgba(200, 170, 110, 0.3);
+    --gold-bright: #FFD700;
+    --blue-deep: #05080F;
+    --blue-dark: #080E1A;
+    --blue-mid: #0D1E35;
+    --blue-accent: #00C8FF;
+    --red: #E84057;
+    --green: #3DCA6E;
+    --purple: #A855F7;
+    --panel: rgba(8, 14, 26, 0.92);
+    --border: rgba(200, 155, 60, 0.2);
+    --border-bright: rgba(200, 155, 60, 0.5);
   }
   * { margin:0; padding:0; box-sizing:border-box; }
   body { background:var(--blue-deep); color:var(--gold-light); font-family:'Rajdhani',sans-serif; min-height:100vh; overflow-x:hidden; }
   body::before {
     content:''; position:fixed; inset:0; pointer-events:none; z-index:0;
-    background-image: radial-gradient(ellipse at 20% 50%, rgba(11,196,227,0.05) 0%, transparent 60%),
-      radial-gradient(ellipse at 80% 20%, rgba(200,170,110,0.06) 0%, transparent 50%),
-      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='52'%3E%3Cpolygon points='30,2 58,17 58,47 30,52 2,47 2,17' fill='none' stroke='rgba(200,170,110,0.04)' stroke-width='1'/%3E%3C/svg%3E");
-    background-size:100% 100%,100% 100%,60px 52px;
+    background:
+      radial-gradient(ellipse 80% 60% at 10% 20%, rgba(0,200,255,0.04) 0%, transparent 70%),
+      radial-gradient(ellipse 60% 80% at 90% 80%, rgba(200,155,60,0.05) 0%, transparent 70%),
+      radial-gradient(ellipse 40% 40% at 50% 50%, rgba(168,85,247,0.03) 0%, transparent 60%);
+  }
+  body::after {
+    content:''; position:fixed; inset:0; pointer-events:none; z-index:0;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80'%3E%3Crect width='80' height='80' fill='none'/%3E%3Ccircle cx='40' cy='40' r='1' fill='rgba(200,155,60,0.08)'/%3E%3Cline x1='0' y1='40' x2='80' y2='40' stroke='rgba(200,155,60,0.03)' stroke-width='1'/%3E%3Cline x1='40' y1='0' x2='40' y2='80' stroke='rgba(200,155,60,0.03)' stroke-width='1'/%3E%3C/svg%3E");
+    background-size:80px 80px;
   }
 
 /* HEADER */
-header { position:relative; z-index:10; display:flex; align-items:center; justify-content:space-between; padding:20px 40px; border-bottom:1px solid var(–border); background:linear-gradient(180deg,rgba(0,5,15,0.9) 0%,transparent 100%); }
-.logo { font-family:‘Bebas Neue’,sans-serif; font-size:2.2rem; letter-spacing:4px; background:linear-gradient(135deg,var(–gold) 0%,var(–gold-light) 50%,var(–gold-dark) 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
-.logo span { -webkit-text-fill-color:var(–blue-accent); filter:drop-shadow(0 0 8px var(–blue-accent)); }
-.region-badge { font-family:‘Share Tech Mono’,monospace; font-size:.75rem; color:var(–blue-accent); border:1px solid var(–blue-accent); padding:4px 12px; letter-spacing:2px; }
+header {
+position:relative; z-index:10; display:flex; align-items:center; justify-content:space-between;
+padding:18px 40px;
+background:linear-gradient(180deg,rgba(5,8,15,0.98) 0%,rgba(5,8,15,0.8) 100%);
+border-bottom:1px solid transparent;
+}
+header::after {
+content:’’; position:absolute; bottom:0; left:0; right:0; height:1px;
+background:linear-gradient(90deg, transparent, var(–gold), var(–blue-accent), var(–gold), transparent);
+}
+.logo { font-family:‘Bebas Neue’,sans-serif; font-size:2rem; letter-spacing:5px; background:linear-gradient(135deg,var(–gold-dark) 0%,var(–gold) 40%,var(–gold-bright) 60%,var(–gold) 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+.logo span { -webkit-text-fill-color:var(–blue-accent); filter:drop-shadow(0 0 12px var(–blue-accent)); }
+.logo-sub { font-family:‘Share Tech Mono’,monospace; font-size:.55rem; letter-spacing:4px; color:rgba(200,155,60,.4); display:block; margin-top:-4px; }
+.region-badge { font-family:‘Share Tech Mono’,monospace; font-size:.65rem; color:var(–blue-accent); border:1px solid rgba(0,200,255,.4); padding:4px 10px; letter-spacing:2px; background:rgba(0,200,255,.05); }
 
 /* SEARCH */
-.search-section { position:relative; z-index:10; display:flex; flex-direction:column; align-items:center; padding:50px 20px 30px; }
-.search-title { font-family:‘Bebas Neue’,sans-serif; font-size:1rem; letter-spacing:6px; color:var(–gold); opacity:.7; margin-bottom:6px; }
-.search-sub { font-size:.85rem; color:rgba(200,170,110,.5); letter-spacing:1px; margin-bottom:24px; }
+.search-section { position:relative; z-index:10; display:flex; flex-direction:column; align-items:center; padding:48px 20px 28px; }
+.search-title { font-family:‘Bebas Neue’,sans-serif; font-size:2.8rem; letter-spacing:4px; color:var(–gold-light); margin-bottom:6px; text-align:center; line-height:1; }
+.search-title span { color:var(–blue-accent); filter:drop-shadow(0 0 16px var(–blue-accent)); }
+.search-sub { font-size:.8rem; color:rgba(200,155,60,.5); letter-spacing:3px; margin-bottom:28px; text-transform:uppercase; text-align:center; font-family:‘Share Tech Mono’,monospace; }
 .search-bar { display:flex; width:100%; max-width:620px; position:relative; }
 .search-bar::before { content:’’; position:absolute; inset:-1px; background:linear-gradient(90deg,var(–gold-dark),var(–blue-accent),var(–gold-dark)); z-index:-1; border-radius:2px; }
 .search-input { flex:1; background:var(–blue-dark); border:none; color:var(–gold-light); font-family:‘Share Tech Mono’,monospace; font-size:1rem; padding:14px 20px; outline:none; letter-spacing:1px; }
@@ -63,8 +81,13 @@ header { position:relative; z-index:10; display:flex; align-items:center; justif
 .tab-content.active { display:block; }
 
 /* SUMMONER CARD */
-.summoner-card { background:var(–panel); border:1px solid var(–border); padding:24px 32px; display:flex; align-items:center; gap:24px; margin-bottom:20px; position:relative; overflow:hidden; }
-.summoner-card::after { content:’’; position:absolute; left:0; top:0; bottom:0; width:3px; background:linear-gradient(180deg,var(–gold),var(–blue-accent)); }
+.summoner-card {
+background:linear-gradient(135deg, rgba(8,14,26,.95) 0%, rgba(13,30,53,.8) 100%);
+border:1px solid var(–border-bright); padding:24px 32px; display:flex; align-items:center; gap:24px; margin-bottom:20px; position:relative; overflow:hidden;
+box-shadow:0 8px 32px rgba(0,0,0,.5);
+}
+.summoner-card::before { content:’’; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,var(–gold),var(–blue-accent),var(–gold),transparent); }
+.summoner-card::after { content:’’; position:absolute; left:0; top:0; bottom:0; width:3px; background:linear-gradient(180deg,var(–gold-bright),var(–blue-accent)); box-shadow:0 0 8px var(–gold); }
 .summoner-avatar { width:72px; height:72px; border-radius:50%; border:2px solid var(–gold); background:var(–blue-mid); display:flex; align-items:center; justify-content:center; font-family:‘Bebas Neue’,sans-serif; font-size:2rem; color:var(–gold); overflow:hidden; flex-shrink:0; }
 .summoner-avatar img { width:100%; height:100%; object-fit:cover; }
 .summoner-info h2 { font-family:‘Bebas Neue’,sans-serif; font-size:1.8rem; letter-spacing:2px; color:var(–gold-light); }
@@ -110,9 +133,14 @@ header { position:relative; z-index:10; display:flex; align-items:center; justif
 .grid-full { margin-bottom:20px; }
 
 /* PANEL */
-.panel { background:var(–panel); border:1px solid var(–border); padding:20px 24px; position:relative; }
-.panel-title { font-family:‘Bebas Neue’,sans-serif; font-size:1.1rem; letter-spacing:3px; color:var(–gold); margin-bottom:16px; display:flex; align-items:center; gap:10px; }
-.panel-title::after { content:’’; flex:1; height:1px; background:var(–border); }
+.panel {
+background:var(–panel); border:1px solid var(–border); padding:20px 24px; position:relative;
+backdrop-filter:blur(10px);
+box-shadow:0 4px 24px rgba(0,0,0,.4), inset 0 1px 0 rgba(200,155,60,.05);
+}
+.panel::before { content:’’; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,rgba(200,155,60,.2),transparent); }
+.panel-title { font-family:‘Bebas Neue’,sans-serif; font-size:1rem; letter-spacing:3px; color:var(–gold); margin-bottom:16px; display:flex; align-items:center; gap:10px; }
+.panel-title::after { content:’’; flex:1; height:1px; background:linear-gradient(90deg,var(–border),transparent); }
 canvas { max-height:250px; }
 
 /* PHASE BARS */
@@ -214,13 +242,80 @@ canvas { max-height:250px; }
 .demo-btn:hover { border-color:var(–gold); }
 .modal-note { margin-top:16px; font-size:.72rem; color:rgba(200,170,110,.35); font-family:‘Share Tech Mono’,monospace; text-align:center; }
 
-@media (max-width:900px) {
-.grid-2,.grid-3 { grid-template-columns:1fr; }
-.highlight-grid { grid-template-columns:1fr 1fr; }
-.summoner-stats { gap:16px; }
-header { padding:16px 20px; }
-.match-item { grid-template-columns:4px 44px 30px 1fr auto; }
+/* ── MOBILE RESPONSIVE ── */
+@media (max-width:768px) {
+header { padding:12px 16px; }
+.logo { font-size:1.6rem; letter-spacing:2px; }
+.region-badge { font-size:.65rem; padding:3px 8px; }
+
+```
+.search-section { padding:24px 16px 20px; }
+.search-title { font-size:.8rem; letter-spacing:4px; }
+.search-bar { flex-wrap:wrap; gap:0; }
+.search-input { width:100%; border-radius:0; font-size:.9rem; padding:12px 16px; }
+.region-select { flex:1; border-left:none; border-top:1px solid var(--border); padding:10px 12px; }
+.search-btn { flex:1; border-top:1px solid var(--border); padding:12px; font-size:.95rem; letter-spacing:2px; }
+.search-bar::before { border-radius:4px; }
+
+#main-content { padding:0 12px 40px; }
+
+.summoner-card { padding:16px; gap:12px; flex-wrap:wrap; }
+.summoner-avatar { width:56px; height:56px; font-size:1.4rem; }
+.summoner-info h2 { font-size:1.3rem; }
+.summoner-stats { margin-left:0; width:100%; justify-content:space-around; gap:8px; padding-top:12px; border-top:1px solid var(--border); }
+.stat-block .val { font-size:1.4rem; }
+.stat-block .lbl { font-size:.6rem; }
+
+.tabs { overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; gap:0; }
+.tabs::-webkit-scrollbar { display:none; }
+.tab-btn { font-size:.75rem; letter-spacing:1px; padding:10px 14px; white-space:nowrap; flex-shrink:0; }
+
+.grid-2,.grid-3 { grid-template-columns:1fr; gap:12px; }
+.grid-3 .panel[style*="span 2"] { grid-column:span 1 !important; }
+.highlight-grid { grid-template-columns:1fr 1fr; gap:8px; }
+.highlight-card { padding:12px; }
+.highlight-val { font-size:1.2rem; }
+.highlight-sub { font-size:.65rem; }
+
+.panel { padding:14px 16px; }
+.panel-title { font-size:.9rem; letter-spacing:2px; margin-bottom:12px; }
+
+.match-item { 
+  grid-template-columns:3px 40px 28px 1fr auto;
+  gap:8px; padding:8px 10px;
+}
 .match-cs,.match-dmg { display:none; }
+.champ-icon { width:36px; height:36px; }
+.perf-score { width:28px; height:28px; font-size:.85rem; }
+.match-champ { font-size:.85rem; }
+.match-vs { font-size:.65rem; }
+.match-kda { font-size:.8rem; }
+.match-time { font-size:.7rem; }
+
+.champ-row { grid-template-columns:30px 1fr auto auto; gap:8px; }
+.champ-row-icon { width:28px; height:28px; }
+
+canvas { max-height:200px; }
+
+.summoner-card::after { width:2px; }
+
+.streak-banner { font-size:.85rem; letter-spacing:1px; padding:8px 14px; }
+
+.ai-panel { padding:16px; }
+.ai-btn { font-size:.85rem; letter-spacing:1px; padding:10px 16px; }
+
+.phase-label span:first-child { font-size:.75rem; }
+
+.modal-box { padding:24px 20px; }
+.modal-box h2 { font-size:1.4rem; }
+.modal-box ol { font-size:.8rem; }
+```
+
+}
+
+@media (max-width:400px) {
+.highlight-grid { grid-template-columns:1fr; }
+.summoner-stats { gap:4px; }
 }
 </style>
 
@@ -250,7 +345,7 @@ header { padding:16px 20px; }
 <!-- HEADER -->
 
 <header>
-  <div class="logo">LoL<span>Scout</span></div>
+  <div class="logo">LoL<span>Scout</span><span class="logo-sub">RANKED TRACKER</span></div>
   <div style="display:flex;align-items:center;gap:16px;">
     <div class="region-badge" id="region-display">VN2</div>
     <button onclick="changeApiKey()" style="background:transparent;border:1px solid var(--border);color:var(--gold);font-family:'Rajdhani',sans-serif;font-size:.8rem;letter-spacing:1px;padding:6px 14px;cursor:pointer;">CHANGER CLÉ</button>
@@ -260,8 +355,8 @@ header { padding:16px 20px; }
 <!-- SEARCH -->
 
 <div class="search-section">
-  <div class="search-title">TRACKER SOLO / DUO</div>
-  <div class="search-sub">Analyse automatique de tes performances ranked</div>
+  <div class="search-title">LOL<span>SCOUT</span></div>
+  <div class="search-sub">Analyse · Progression · Coaching IA</div>
   <div class="search-bar">
     <input class="search-input" id="summoner-input" type="text" placeholder="GameName#TAG (ex: yoantw#frddd)" />
     <select class="region-select" id="region-select">
@@ -900,10 +995,38 @@ async function generateAIAnalysis() {
   btn.textContent = '⏳ GÉNÉRATION...';
 
   document.getElementById('ai-output').innerHTML = `
-    <div class="ai-generating">
-      <div class="ai-dot"></div><div class="ai-dot"></div><div class="ai-dot"></div>
-      <span style="font-family:'Share Tech Mono',monospace;font-size:.85rem;color:rgba(200,170,110,.6);margin-left:8px">CLAUDE ANALYSE TES DONNÉES...</span>
+    <div class="ai-generating" id="ai-thinking-box">
+      <div style="width:100%;max-width:480px">
+        <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px">
+          <div style="position:relative;width:44px;height:44px;flex-shrink:0">
+            <div style="position:absolute;inset:0;border-radius:50%;border:2px solid rgba(0,200,255,.15);animation:spin 3s linear infinite"></div>
+            <div style="position:absolute;inset:4px;border-radius:50%;border:2px solid transparent;border-top-color:var(--blue-accent);animation:spin 1s linear infinite"></div>
+            <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:1.1rem">🤖</div>
+          </div>
+          <div>
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:.95rem;letter-spacing:3px;color:var(--blue-accent)">ANALYSE EN COURS</div>
+            <div style="font-family:'Share Tech Mono',monospace;font-size:.68rem;color:rgba(200,155,60,.6);margin-top:2px" id="ai-step-label">Initialisation...</div>
+          </div>
+        </div>
+        <div style="background:rgba(0,0,0,.3);border:1px solid rgba(0,200,255,.1);padding:10px 14px;font-family:'Share Tech Mono',monospace;font-size:.68rem;color:rgba(200,155,60,.5);line-height:1.8;min-height:56px" id="ai-log-box"></div>
+        <div style="margin-top:8px;height:2px;background:rgba(255,255,255,.05);border-radius:2px;overflow:hidden">
+          <div id="ai-prog" style="height:100%;width:0%;background:linear-gradient(90deg,var(--blue-accent),var(--purple));transition:width .5s ease"></div>
+        </div>
+      </div>
     </div>`;
+    
+  const _steps = ['Chargement historique de parties...','Calcul KDA et performance...','Analyse CS et farming...','Évaluation phases de jeu...','Détection des patterns...','Génération rapport IA...','Finalisation...'];
+  let _si = 0;
+  window._aiInt = setInterval(() => {
+    if (_si >= _steps.length) return;
+    const el = document.getElementById('ai-log-box');
+    const lb = document.getElementById('ai-step-label');
+    const pb = document.getElementById('ai-prog');
+    if (el) el.innerHTML += (_si?'<br>':'') + '▸ ' + _steps[_si];
+    if (lb) lb.textContent = _steps[_si];
+    if (pb) pb.style.width = ((_si+1)/_steps.length*80)+'%';
+    _si++;
+  }, 700);
 
   const { account, soloQ, matches, puuid } = globalMatchData;
 
@@ -985,10 +1108,15 @@ Sois direct, précis, basé uniquement sur les données. Utilise les emojis avec
     const data = await response.json();
     if (data.error) throw new Error(data.error);
     const text = data.content?.find(b=>b.type==='text')?.text || '';
+    if (window._aiInt) clearInterval(window._aiInt);
+    const pb = document.getElementById('ai-prog');
+    if (pb) pb.style.width = '100%';
+    await new Promise(r => setTimeout(r, 400));
     renderAIOutput(text);
   } catch(e) {
+    if (window._aiInt) clearInterval(window._aiInt);
     localStorage.removeItem('lol_scout_claude_key');
-    document.getElementById('ai-output').innerHTML = `<div style="color:var(--red);font-family:'Share Tech Mono',monospace;font-size:.85rem;padding:20px">Erreur lors de la génération: ${e.message}<br><br>Clique à nouveau pour réessayer avec une nouvelle clé.</div>`;
+    document.getElementById('ai-output').innerHTML = `<div style="color:var(--red);font-family:'Share Tech Mono',monospace;font-size:.85rem;padding:20px">Erreur: ${e.message}<br><br>Clique à nouveau pour réessayer.</div>`;
   } finally {
     btn.disabled = false;
     btn.textContent = '🔄 REGÉNÉRER';
