@@ -158,7 +158,7 @@ color:var(–gold-light); font-family:‘Share Tech Mono’,monospace;
 font-size:.95rem; padding:16px 18px; outline:none; letter-spacing:1px;
 min-width:0;
 }
-.search-input::placeholder { color:rgba(200,155,60,.25); }
+.search-input::placeholder { color:rgba(240,230,211,.35); }
 .search-input:focus { background:rgba(13,30,53,.95); }
 .region-select {
 background:rgba(13,30,53,.95);
@@ -1144,7 +1144,7 @@ async function generateAIAnalysis() {
   const _steps = ['Chargement historique de parties...','Calcul KDA et performance...','Analyse CS et farming...','Évaluation phases de jeu...','Détection des patterns...','Génération rapport IA...','Finalisation...'];
   let _si = 0;
   window._aiInt = setInterval(() => {
-    if (_si >= _steps.length) return;
+    if (_si >= _steps.length) { clearInterval(window._aiInt); return; }
     const el = document.getElementById('ai-log-box');
     const lb = document.getElementById('ai-step-label');
     const pb = document.getElementById('ai-prog');
