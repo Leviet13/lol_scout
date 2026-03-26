@@ -154,9 +154,11 @@ box-shadow:0 8px 32px rgba(0,0,0,.6), 0 0 0 1px rgba(200,155,60,.2);
 .search-input {
 flex:1; background:rgba(8,14,26,.95);
 border:none; border-right:1px solid rgba(200,155,60,.15);
-color:var(–gold-light); font-family:‘Share Tech Mono’,monospace;
+color:#F0E6D3 !important; -webkit-text-fill-color:#F0E6D3 !important;
+font-family:‘Share Tech Mono’,monospace;
 font-size:.95rem; padding:16px 18px; outline:none; letter-spacing:1px;
-min-width:0;
+min-width:0; -webkit-appearance:none; appearance:none;
+caret-color:#C89B3C;
 }
 .search-input::placeholder { color:rgba(240,230,211,.35); }
 .search-input:focus { background:rgba(13,30,53,.95); }
