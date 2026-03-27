@@ -1,0 +1,3215 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LoL Scout — Tracker Solo/Duo</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23050810'/%3E%3Cpolygon points='32,4 60,18 60,46 32,60 4,46 4,18' fill='none' stroke='%23C89B3C' stroke-width='3'/%3E%3Cpolygon points='32,12 52,22 52,42 32,52 12,42 12,22' fill='none' stroke='%2300C8FF' stroke-width='1.5' opacity='0.6'/%3E%3Ctext x='32' y='40' text-anchor='middle' font-family='serif' font-weight='bold' font-size='22' fill='%23C89B3C'%3EL%3C/text%3E%3C/svg%3E">
+<meta name="theme-color" content="#050810">
+<meta name="description" content="LoL Scout — Analyse tes parties ranked, coaching IA, stats temps réel">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --gold: #C89B3C;
+    --gold-light: #F0E6D3;
+    --gold-dark: #785A28;
+    --gold-bright: #FFD700;
+    --blue-deep: #05080F;
+    --blue-dark: #080E1A;
+    --blue-mid: #0D1E35;
+    --blue-accent: #00C8FF;
+    --red: #E84057;
+    --green: #3DCA6E;
+    --purple: #A855F7;
+    --panel: rgba(8, 14, 26, 0.92);
+    --border: rgba(200, 155, 60, 0.2);
+    --border-bright: rgba(200, 155, 60, 0.5);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--blue-deep); color:var(--gold-light); font-family:'Rajdhani',sans-serif; min-height:100vh; overflow-x:hidden; }
+  body::before {
+    content:''; position:fixed; inset:0; pointer-events:none; z-index:0;
+    background:
+      radial-gradient(ellipse 80% 60% at 10% 20%, rgba(0,200,255,0.04) 0%, transparent 70%),
+      radial-gradient(ellipse 60% 80% at 90% 80%, rgba(200,155,60,0.05) 0%, transparent 70%),
+      radial-gradient(ellipse 40% 40% at 50% 50%, rgba(168,85,247,0.03) 0%, transparent 60%);
+  }
+  body::after {
+    content:''; position:fixed; inset:0; pointer-events:none; z-index:0;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80'%3E%3Crect width='80' height='80' fill='none'/%3E%3Ccircle cx='40' cy='40' r='1' fill='rgba(200,155,60,0.08)'/%3E%3Cline x1='0' y1='40' x2='80' y2='40' stroke='rgba(200,155,60,0.03)' stroke-width='1'/%3E%3Cline x1='40' y1='0' x2='40' y2='80' stroke='rgba(200,155,60,0.03)' stroke-width='1'/%3E%3C/svg%3E");
+    background-size:80px 80px;
+  }
+
+  /* HEADER */
+  header { 
+    position:relative; z-index:10; display:flex; align-items:center; justify-content:space-between; 
+    padding:18px 40px; 
+    background:linear-gradient(180deg,rgba(5,8,15,0.98) 0%,rgba(5,8,15,0.8) 100%);
+    border-bottom:1px solid transparent;
+  }
+  header::after {
+    content:''; position:absolute; bottom:0; left:0; right:0; height:1px;
+    background:linear-gradient(90deg, transparent, var(--gold), var(--blue-accent), var(--gold), transparent);
+  }
+  .logo { font-family:'Bebas Neue',sans-serif; font-size:2rem; letter-spacing:5px; background:linear-gradient(135deg,var(--gold-dark) 0%,var(--gold) 40%,var(--gold-bright) 60%,var(--gold) 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+  .logo span { -webkit-text-fill-color:var(--blue-accent); filter:drop-shadow(0 0 12px var(--blue-accent)); }
+  .logo-sub { font-family:'Share Tech Mono',monospace; font-size:.55rem; letter-spacing:4px; color:rgba(200,155,60,.4); display:block; margin-top:-4px; }
+  .region-badge { font-family:'Share Tech Mono',monospace; font-size:.65rem; color:var(--blue-accent); border:1px solid rgba(0,200,255,.4); padding:4px 10px; letter-spacing:2px; background:rgba(0,200,255,.05); }
+
+  /* GAME SWITCH */
+  .game-switch { display:flex; gap:0; border:1px solid var(--border); overflow:hidden; }
+  .game-btn { font-family:'Bebas Neue',sans-serif; font-size:.85rem; letter-spacing:2px; padding:6px 16px; cursor:pointer; border:none; transition:all .2s; background:transparent; color:rgba(200,155,60,.4); }
+  .game-btn.active { background:linear-gradient(135deg,var(--gold-dark),var(--gold)); color:var(--blue-deep); }
+  .game-btn:not(.active):hover { color:var(--gold); background:rgba(200,155,60,.05); }
+
+  /* TFT SPECIFIC */
+  .tft-match { background:var(--panel); border:1px solid var(--border); padding:12px 16px; margin-bottom:6px; display:grid; grid-template-columns:44px 1fr auto; gap:12px; align-items:center; cursor:pointer; transition:all .2s; }
+  .tft-match:hover { border-color:rgba(200,155,60,.3); transform:translateX(3px); }
+  .placement-badge { width:44px; height:44px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:'Bebas Neue',sans-serif; font-size:1.4rem; border:2px solid; flex-shrink:0; }
+  .place-1 { background:rgba(255,215,0,.15); border-color:#FFD700; color:#FFD700; box-shadow:0 0 12px rgba(255,215,0,.3); }
+  .place-2 { background:rgba(192,192,192,.1); border-color:#C0C0C0; color:#C0C0C0; }
+  .place-3 { background:rgba(205,127,50,.1); border-color:#CD7F32; color:#CD7F32; }
+  .place-4 { background:rgba(61,202,110,.1); border-color:var(--green); color:var(--green); }
+  .place-5,.place-6 { background:rgba(200,155,60,.1); border-color:var(--gold); color:var(--gold); }
+  .place-7,.place-8 { background:rgba(232,64,87,.1); border-color:var(--red); color:var(--red); }
+
+  .unit-icon { width:32px; height:32px; border-radius:4px; overflow:hidden; border:2px solid; flex-shrink:0; }
+  .unit-icon img { width:100%; height:100%; object-fit:cover; }
+  .cost-1 { border-color:#808080; }
+  .cost-2 { border-color:#3DCA6E; }
+  .cost-3 { border-color:#0BC4E3; }
+  .cost-4 { border-color:#A855F7; }
+  .cost-5 { border-color:#FFD700; }
+
+  .augment-badge { display:inline-flex; align-items:center; gap:4px; font-size:.65rem; padding:2px 8px; border-radius:2px; font-family:'Share Tech Mono',monospace; margin:2px; }
+  .aug-silver { background:rgba(192,192,192,.1); border:1px solid rgba(192,192,192,.4); color:#C0C0C0; }
+  .aug-gold { background:rgba(255,215,0,.1); border:1px solid rgba(255,215,0,.4); color:#FFD700; }
+  .aug-prismatic { background:rgba(168,85,247,.1); border:1px solid rgba(168,85,247,.5); color:#A855F7; }
+
+  .trait-badge { display:inline-flex; align-items:center; gap:3px; font-size:.62rem; padding:2px 7px; font-family:'Share Tech Mono',monospace; margin:2px; border-radius:2px; }
+  .trait-bronze { background:rgba(205,127,50,.15); border:1px solid rgba(205,127,50,.4); color:#CD7F32; }
+  .trait-silver { background:rgba(192,192,192,.1); border:1px solid rgba(192,192,192,.4); color:#C0C0C0; }
+  .trait-gold   { background:rgba(255,215,0,.1); border:1px solid rgba(255,215,0,.4); color:#FFD700; }
+  .trait-chroma { background:rgba(168,85,247,.1); border:1px solid rgba(168,85,247,.5); color:#A855F7; }
+
+  /* HERO */
+  .hero-section {
+    position:relative; z-index:10;
+    min-height:100svh;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:80px 20px 40px;
+    overflow:hidden;
+  }
+
+  .hero-bg-glow {
+    position:absolute; inset:0; pointer-events:none;
+    background:
+      radial-gradient(ellipse 70% 50% at 50% 30%, rgba(0,200,255,0.08) 0%, transparent 70%),
+      radial-gradient(ellipse 50% 60% at 20% 80%, rgba(200,155,60,0.06) 0%, transparent 60%),
+      radial-gradient(ellipse 40% 40% at 80% 20%, rgba(168,85,247,0.05) 0%, transparent 60%);
+    animation:glowPulse 6s ease-in-out infinite;
+  }
+  @keyframes glowPulse {
+    0%,100% { opacity:1; }
+    50% { opacity:0.6; }
+  }
+
+  .hero-content { text-align:center; margin-bottom:40px; position:relative; }
+
+  .hero-badge {
+    display:inline-block;
+    font-family:'Share Tech Mono',monospace;
+    font-size:.6rem; letter-spacing:3px;
+    color:rgba(0,200,255,.6);
+    border:1px solid rgba(0,200,255,.2);
+    padding:5px 14px; margin-bottom:20px;
+    background:rgba(0,200,255,.04);
+  }
+
+  .hero-title {
+    font-family:'Bebas Neue',sans-serif;
+    font-size:5rem; letter-spacing:6px;
+    line-height:0.9;
+    background:linear-gradient(135deg, #785A28 0%, #C89B3C 30%, #FFD700 50%, #C89B3C 70%, #785A28 100%);
+    background-size:200% 100%;
+    -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+    animation:shimmer 4s linear infinite;
+    margin-bottom:4px;
+  }
+  .hero-title span {
+    -webkit-text-fill-color:transparent;
+    background:linear-gradient(135deg, #0088bb, #00C8FF, #00E5FF, #00C8FF);
+    background-size:200% 100%;
+    -webkit-background-clip:text;
+    filter:drop-shadow(0 0 20px rgba(0,200,255,.5));
+    animation:shimmer 3s linear infinite reverse;
+  }
+  @keyframes shimmer {
+    0% { background-position:200% 0; }
+    100% { background-position:-200% 0; }
+  }
+
+  .hero-subtitle {
+    font-family:'Rajdhani',sans-serif;
+    font-size:1.1rem; line-height:1.6;
+    color:rgba(240,230,211,.5);
+    letter-spacing:1px;
+    margin-bottom:24px;
+  }
+
+  .hero-features {
+    display:flex; gap:12px; justify-content:center; flex-wrap:wrap;
+    margin-bottom:0;
+  }
+  .hero-feat {
+    display:flex; align-items:center; gap:6px;
+    font-family:'Rajdhani',sans-serif; font-size:.8rem; font-weight:600;
+    letter-spacing:1px;
+    color:rgba(200,155,60,.7);
+    background:rgba(200,155,60,.05);
+    border:1px solid rgba(200,155,60,.15);
+    padding:5px 12px;
+  }
+  .hero-feat span { font-size:.9rem; }
+
+  .search-wrap {
+    position:relative; z-index:2;
+    width:100%; max-width:560px;
+  }
+
+  .search-label {
+    font-family:'Share Tech Mono',monospace;
+    font-size:.65rem; letter-spacing:3px;
+    color:rgba(200,155,60,.4);
+    margin-bottom:8px; text-align:left;
+  }
+
+  .search-bar {
+    display:flex; width:100%;
+    box-shadow:0 8px 32px rgba(0,0,0,.6), 0 0 0 1px rgba(200,155,60,.2);
+  }
+  .search-input {
+    flex:1; background:rgba(8,14,26,.95);
+    border:none; border-right:1px solid rgba(200,155,60,.15);
+    color:#F0E6D3 !important; -webkit-text-fill-color:#F0E6D3 !important;
+    font-family:'Share Tech Mono',monospace;
+    font-size:.95rem; padding:16px 18px; outline:none; letter-spacing:1px;
+    min-width:0; -webkit-appearance:none; appearance:none;
+    caret-color:#C89B3C;
+  }
+  .search-input::placeholder { color:rgba(240,230,211,.35); }
+  .search-input:focus { background:rgba(13,30,53,.95); }
+  .region-select {
+    background:rgba(13,30,53,.95);
+    border:none; border-right:1px solid rgba(200,155,60,.15);
+    color:var(--gold); font-family:'Rajdhani',sans-serif; font-weight:700;
+    font-size:.9rem; padding:16px 12px; outline:none; cursor:pointer;
+    -webkit-appearance:none; appearance:none;
+    min-width:60px; text-align:center;
+  }
+  .search-btn {
+    background:linear-gradient(135deg,#785A28,#C89B3C,#FFD700);
+    border:none; color:#05080F;
+    font-family:'Bebas Neue',sans-serif; font-size:1rem; letter-spacing:3px;
+    padding:16px 20px; cursor:pointer; transition:all .2s; white-space:nowrap;
+    font-weight:900;
+  }
+  .search-btn:hover { filter:brightness(1.15); box-shadow:0 0 24px rgba(200,155,60,.4); }
+  .search-btn:active { transform:scale(.98); }
+  .api-note { margin-top:10px; font-size:.62rem; color:rgba(200,155,60,.3); font-family:'Share Tech Mono',monospace; text-align:center; letter-spacing:1px; }
+
+  /* MAIN */
+  #main-content { position:relative; z-index:10; max-width:1300px; margin:0 auto; padding:0 24px 60px; display:none; }
+
+  /* TABS */
+  .tabs { display:flex; gap:4px; margin-bottom:20px; border-bottom:1px solid var(--border); }
+  .tab-btn { font-family:'Bebas Neue',sans-serif; font-size:1rem; letter-spacing:3px; color:rgba(200,170,110,.5); background:transparent; border:none; padding:12px 24px; cursor:pointer; transition:all .2s; border-bottom:2px solid transparent; margin-bottom:-1px; }
+  .tab-btn.active { color:var(--gold); border-bottom-color:var(--gold); }
+  .tab-btn:hover { color:var(--gold-light); }
+  .tab-content { display:none; }
+  .tab-content.active { display:block; }
+
+  /* SUMMONER CARD */
+  .summoner-card { 
+    background:linear-gradient(135deg, rgba(8,14,26,.95) 0%, rgba(13,30,53,.8) 100%);
+    border:1px solid var(--border-bright); padding:24px 32px; display:flex; align-items:center; gap:24px; margin-bottom:20px; position:relative; overflow:hidden;
+    box-shadow:0 8px 32px rgba(0,0,0,.5);
+  }
+  .summoner-card::before { content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,var(--gold),var(--blue-accent),var(--gold),transparent); }
+  .summoner-card::after { content:''; position:absolute; left:0; top:0; bottom:0; width:3px; background:linear-gradient(180deg,var(--gold-bright),var(--blue-accent)); box-shadow:0 0 8px var(--gold); }
+  .summoner-avatar { width:72px; height:72px; border-radius:50%; border:2px solid var(--gold); background:var(--blue-mid); display:flex; align-items:center; justify-content:center; font-family:'Bebas Neue',sans-serif; font-size:2rem; color:var(--gold); overflow:hidden; flex-shrink:0; }
+  .summoner-avatar img { width:100%; height:100%; object-fit:cover; }
+  .summoner-info h2 { font-family:'Bebas Neue',sans-serif; font-size:1.8rem; letter-spacing:2px; color:var(--gold-light); }
+  .rank-badge { display:inline-block; font-size:.85rem; font-weight:600; letter-spacing:1px; padding:2px 10px; margin-top:4px; }
+  .rank-gold { background:rgba(200,170,110,.15); border:1px solid var(--gold); color:var(--gold); }
+  .rank-plat { background:rgba(11,196,227,.1); border:1px solid var(--blue-accent); color:var(--blue-accent); }
+  .rank-diam { background:rgba(100,130,255,.1); border:1px solid #6482FF; color:#6482FF; }
+  .rank-iron,.rank-bron,.rank-silv { background:rgba(150,150,150,.1); border:1px solid #aaa; color:#aaa; }
+  .summoner-stats { margin-left:auto; display:flex; gap:32px; }
+  .stat-block { text-align:center; }
+  .stat-block .val { font-family:'Bebas Neue',sans-serif; font-size:2rem; color:var(--gold-light); line-height:1; }
+  .stat-block .lbl { font-size:.7rem; letter-spacing:2px; color:rgba(200,170,110,.5); margin-top:2px; }
+
+  /* STREAK BANNER */
+  .streak-banner { padding:10px 20px; margin-bottom:16px; font-family:'Bebas Neue',sans-serif; font-size:1.1rem; letter-spacing:3px; display:flex; align-items:center; gap:12px; }
+  .streak-win { background:rgba(75,181,94,.1); border:1px solid rgba(75,181,94,.4); color:var(--green); }
+  .streak-loss { background:rgba(195,75,75,.1); border:1px solid rgba(195,75,75,.4); color:var(--red); }
+  .streak-neutral { background:rgba(200,170,110,.05); border:1px solid var(--border); color:var(--gold); }
+
+  /* HIGHLIGHT GAMES */
+  .highlight-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:20px; }
+  .highlight-card { background:var(--panel); border:1px solid var(--border); padding:16px; position:relative; overflow:hidden; transition:border-color .2s; }
+  .highlight-card:hover { border-color:var(--gold); }
+  .highlight-card::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; }
+  .highlight-mvp::before { background:linear-gradient(90deg,var(--gold),#FFD700); }
+  .highlight-carry::before { background:linear-gradient(90deg,var(--green),#00ff88); }
+  .highlight-kda::before { background:linear-gradient(90deg,var(--blue-accent),#0088ff); }
+  .highlight-label { font-family:'Bebas Neue',sans-serif; font-size:.8rem; letter-spacing:3px; opacity:.6; margin-bottom:6px; }
+  .highlight-val { font-family:'Bebas Neue',sans-serif; font-size:1.6rem; color:var(--gold-light); }
+  .highlight-sub { font-size:.75rem; color:rgba(200,170,110,.5); font-family:'Share Tech Mono',monospace; }
+
+  /* PERFORMANCE SCORE */
+  .perf-score { display:inline-flex; align-items:center; justify-content:center; width:36px; height:36px; border-radius:50%; font-family:'Bebas Neue',sans-serif; font-size:1.1rem; font-weight:700; border:2px solid; flex-shrink:0; }
+  .score-s { background:rgba(255,215,0,.15); border-color:#FFD700; color:#FFD700; }
+  .score-a { background:rgba(75,181,94,.15); border-color:var(--green); color:var(--green); }
+  .score-b { background:rgba(11,196,227,.1); border-color:var(--blue-accent); color:var(--blue-accent); }
+  .score-c { background:rgba(200,170,110,.1); border-color:var(--gold); color:var(--gold); }
+  .score-d { background:rgba(195,75,75,.1); border-color:var(--red); color:var(--red); }
+
+  /* GRID */
+  .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px; }
+  .grid-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:20px; margin-bottom:20px; }
+  .grid-full { margin-bottom:20px; }
+
+  /* ITEMS */
+  .item-grid { display:flex; gap:4px; flex-wrap:wrap; align-items:center; }
+  .item-icon { width:24px; height:24px; border-radius:3px; background:var(--blue-mid); border:1px solid rgba(200,155,60,.2); overflow:hidden; flex-shrink:0; position:relative; }
+  .item-icon img { width:100%; height:100%; object-fit:cover; }
+  .item-icon.empty { opacity:.2; }
+  .trinket { border-color:rgba(0,200,255,.3); }
+
+  /* SCOREBOARD MODAL */
+  .match-detail-overlay {
+    position:fixed; inset:0; background:rgba(0,0,0,.85); z-index:200;
+    display:flex; align-items:center; justify-content:center; padding:16px;
+    backdrop-filter:blur(4px);
+    animation:fadeIn .2s ease;
+  }
+  .match-detail-box {
+    background:var(--blue-dark); border:1px solid var(--border-bright);
+    width:100%; max-width:900px; max-height:90vh; overflow-y:auto;
+    position:relative;
+  }
+  .match-detail-box::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; background:linear-gradient(90deg,transparent,var(--gold),var(--blue-accent),var(--gold),transparent); }
+  .match-detail-header { padding:16px 20px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); }
+  .match-detail-close { background:transparent; border:1px solid var(--border); color:var(--gold); font-family:'Bebas Neue',sans-serif; letter-spacing:2px; padding:6px 14px; cursor:pointer; font-size:.85rem; transition:all .2s; }
+  .match-detail-close:hover { border-color:var(--gold); background:rgba(200,155,60,.1); }
+  .team-section { padding:12px 20px 0; }
+  .team-title { font-family:'Bebas Neue',sans-serif; font-size:.85rem; letter-spacing:3px; margin-bottom:8px; padding-bottom:6px; border-bottom:1px solid var(--border); }
+  .team-win .team-title { color:var(--green); }
+  .team-loss .team-title { color:var(--red); }
+  .player-row {
+    display:grid;
+    grid-template-columns:40px 52px 1fr 85px 110px 160px;
+    gap:8px; align-items:center;
+    padding:7px 10px; border-radius:2px; margin-bottom:2px;
+    transition:background .15s;
+  }
+  .player-row:hover { background:rgba(200,155,60,.05); }
+  .player-row.is-me { background:rgba(200,155,60,.08); border-left:2px solid var(--gold); padding-left:6px; }
+  .player-champ { width:36px; height:36px; border-radius:50%; overflow:hidden; border:1px solid var(--border); flex-shrink:0; }
+  .player-champ img { width:100%; height:100%; object-fit:cover; }
+  .player-name { font-size:.78rem; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .player-rank-badge { font-size:.6rem; font-family:'Share Tech Mono',monospace; padding:1px 5px; border-radius:2px; white-space:nowrap; }
+  .rank-c  { background:rgba(150,150,150,.1); border:1px solid #888; color:#aaa; }
+  .rank-s  { background:rgba(192,192,192,.1); border:1px solid #c0c0c0; color:#ddd; }
+  .rank-g  { background:rgba(200,155,60,.1); border:1px solid var(--gold); color:var(--gold); }
+  .rank-p  { background:rgba(0,200,255,.1); border:1px solid var(--blue-accent); color:var(--blue-accent); }
+  .rank-e  { background:rgba(100,200,255,.1); border:1px solid #64c8ff; color:#64c8ff; }
+  .rank-d  { background:rgba(100,130,255,.1); border:1px solid #6482ff; color:#6482ff; }
+  .rank-m  { background:rgba(168,85,247,.1); border:1px solid var(--purple); color:var(--purple); }
+  .rank-gm { background:rgba(255,100,50,.1); border:1px solid #ff6432; color:#ff6432; }
+  .rank-ch { background:rgba(0,200,150,.1); border:1px solid #00c896; color:#00c896; }
+  .player-kda-cell { font-family:'Share Tech Mono',monospace; font-size:.75rem; text-align:center; }
+  .player-cs-cell  { font-size:.72rem; color:rgba(200,155,60,.6); font-family:'Share Tech Mono',monospace; text-align:center; }
+  .player-dmg-cell { font-size:.72rem; color:rgba(200,155,60,.6); font-family:'Share Tech Mono',monospace; text-align:center; }
+  .player-items { display:flex; gap:2px; }
+  .p-item { width:22px; height:22px; border-radius:3px; background:var(--blue-mid); border:1px solid rgba(200,155,60,.15); overflow:hidden; }
+  .p-item img { width:100%; height:100%; object-fit:cover; }
+  .dmg-bar-wrap { height:3px; background:rgba(255,255,255,.05); border-radius:2px; margin-top:2px; }
+  .dmg-bar { height:100%; border-radius:2px; background:var(--red); }
+
+  /* ITEMIZATION ANALYSIS */
+  .item-analysis-row { display:flex; align-items:flex-start; gap:12px; padding:12px 0; border-bottom:1px solid rgba(200,155,60,.07); }
+  .item-analysis-champ { width:36px; height:36px; border-radius:50%; overflow:hidden; border:1px solid var(--border); flex-shrink:0; }
+  .item-analysis-champ img { width:100%; height:100%; object-fit:cover; }
+  .item-tip { font-size:.72rem; color:rgba(200,155,60,.5); font-style:italic; margin-top:4px; font-family:'Share Tech Mono',monospace; }
+
+  /* MATCH ITEM clickable */
+  .match-item { cursor:pointer; }
+  .match-item-expand { font-size:.6rem; color:rgba(200,155,60,.4); text-align:right; font-family:'Share Tech Mono',monospace; letter-spacing:1px; }
+
+  /* PANEL */
+  .panel { 
+    background:var(--panel); border:1px solid var(--border); padding:20px 24px; position:relative;
+    backdrop-filter:blur(10px);
+    box-shadow:0 4px 24px rgba(0,0,0,.4), inset 0 1px 0 rgba(200,155,60,.05);
+  }
+  .panel::before { content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,rgba(200,155,60,.2),transparent); }
+  .panel-title { font-family:'Bebas Neue',sans-serif; font-size:1rem; letter-spacing:3px; color:var(--gold); margin-bottom:16px; display:flex; align-items:center; gap:10px; }
+  .panel-title::after { content:''; flex:1; height:1px; background:linear-gradient(90deg,var(--border),transparent); }
+  canvas { max-height:250px; }
+
+  /* PHASE BARS */
+  .phase-row { margin-bottom:14px; }
+  .phase-label { display:flex; justify-content:space-between; font-size:.8rem; margin-bottom:4px; }
+  .phase-label span:first-child { color:rgba(200,170,110,.7); letter-spacing:1px; }
+  .phase-label span:last-child { font-family:'Share Tech Mono',monospace; font-size:.75rem; }
+  .phase-bar-track { height:8px; background:rgba(255,255,255,.05); border-radius:4px; overflow:hidden; }
+  .phase-bar-fill { height:100%; border-radius:4px; transition:width .8s ease; }
+  .phase-early .phase-bar-fill { background:linear-gradient(90deg,#e74c3c,#e67e22); }
+  .phase-mid .phase-bar-fill { background:linear-gradient(90deg,#f39c12,#C8AA6E); }
+  .phase-late .phase-bar-fill { background:linear-gradient(90deg,#27ae60,#0BC4E3); }
+  .phase-badge { display:inline-block; font-size:.65rem; letter-spacing:1px; padding:2px 8px; font-family:'Share Tech Mono',monospace; margin-top:4px; }
+  .phase-best { background:rgba(75,181,94,.15); border:1px solid rgba(75,181,94,.4); color:var(--green); }
+  .phase-worst { background:rgba(195,75,75,.15); border:1px solid rgba(195,75,75,.4); color:var(--red); }
+
+  /* MATCH LIST */
+  .match-item { display:grid; grid-template-columns:4px 52px 36px 1fr auto auto auto auto; align-items:center; gap:12px; padding:10px 14px; border-bottom:1px solid rgba(200,170,110,.07); transition:background .15s; }
+  .match-item:hover { background:rgba(200,170,110,.04); }
+  .match-result-bar { height:100%; border-radius:2px; min-height:50px; }
+  .win .match-result-bar { background:var(--green); }
+  .loss .match-result-bar { background:var(--red); }
+  .champ-icon { width:44px; height:44px; border-radius:50%; background:var(--blue-mid); border:2px solid; display:flex; align-items:center; justify-content:center; font-size:.6rem; font-family:'Share Tech Mono',monospace; text-align:center; overflow:hidden; }
+  .win .champ-icon { border-color:rgba(75,181,94,.5); }
+  .loss .champ-icon { border-color:rgba(195,75,75,.5); }
+  .champ-icon img { width:100%; height:100%; object-fit:cover; }
+  .match-champ { font-weight:700; font-size:.95rem; color:var(--gold-light); }
+  .match-vs { font-size:.75rem; color:rgba(200,170,110,.5); font-family:'Share Tech Mono',monospace; }
+  .match-kda { font-family:'Share Tech Mono',monospace; font-size:.9rem; white-space:nowrap; }
+  .match-cs,.match-dmg,.match-time { font-size:.78rem; color:rgba(200,170,110,.6); font-family:'Share Tech Mono',monospace; text-align:right; white-space:nowrap; }
+  .kda-good { color:var(--gold); }
+  .kda-great { color:#00d4aa; }
+  .kda-avg { color:rgba(200,170,110,.7); }
+
+  /* CHAMPION ROWS */
+  .champ-row { display:grid; grid-template-columns:36px 1fr auto auto auto; align-items:center; gap:12px; padding:8px 0; border-bottom:1px solid rgba(200,170,110,.07); font-size:.85rem; }
+  .champ-row-icon { width:32px; height:32px; border-radius:50%; background:var(--blue-mid); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:.55rem; font-family:'Share Tech Mono',monospace; text-align:center; overflow:hidden; }
+  .champ-row-icon img { width:100%; height:100%; object-fit:cover; }
+  .wr-bar-wrap { height:4px; background:rgba(255,255,255,.05); border-radius:2px; margin-top:3px; }
+  .wr-bar { height:100%; border-radius:2px; background:linear-gradient(90deg,var(--red),var(--green)); }
+  .win-rate-val { font-weight:700; }
+  .wr-high { color:var(--green); }
+  .wr-mid { color:var(--gold); }
+  .wr-low { color:var(--red); }
+
+  /* MATCHUP */
+  .matchup-row { display:grid; grid-template-columns:1fr auto auto auto; gap:12px; align-items:center; padding:6px 0; border-bottom:1px solid rgba(200,170,110,.07); font-size:.82rem; }
+  .tag { font-size:.65rem; letter-spacing:1px; padding:2px 6px; font-family:'Share Tech Mono',monospace; }
+  .tag-win { background:rgba(75,181,94,.15); color:var(--green); border:1px solid rgba(75,181,94,.3); }
+  .tag-loss { background:rgba(195,75,75,.15); color:var(--red); border:1px solid rgba(195,75,75,.3); }
+
+  /* AI ANALYSIS */
+  .ai-panel { background:var(--panel); border:1px solid var(--border); padding:28px; position:relative; overflow:hidden; }
+  .ai-panel::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; background:linear-gradient(90deg,var(--gold-dark),var(--blue-accent),var(--purple),var(--gold)); }
+  .ai-generating { display:flex; align-items:center; gap:16px; padding:40px; justify-content:center; }
+  .ai-dot { width:8px; height:8px; border-radius:50%; background:var(--blue-accent); animation:bounce .8s ease-in-out infinite; }
+  .ai-dot:nth-child(2) { animation-delay:.15s; background:var(--gold); }
+  .ai-dot:nth-child(3) { animation-delay:.3s; background:var(--purple); }
+  @keyframes bounce { 0%,100%{transform:translateY(0);opacity:.4} 50%{transform:translateY(-8px);opacity:1} }
+  .ai-section { margin-bottom:24px; }
+  .ai-section-title { font-family:'Bebas Neue',sans-serif; font-size:1rem; letter-spacing:3px; color:var(--blue-accent); margin-bottom:10px; display:flex; align-items:center; gap:8px; }
+  .ai-section-title::before { content:'▸'; color:var(--gold); }
+  .ai-text { font-size:.9rem; line-height:1.7; color:rgba(240,230,211,.85); }
+  .ai-strengths,.ai-weaknesses { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+  .ai-tag { font-size:.75rem; padding:4px 12px; border-radius:2px; font-family:'Share Tech Mono',monospace; letter-spacing:1px; }
+  .ai-tag-green { background:rgba(75,181,94,.1); border:1px solid rgba(75,181,94,.4); color:var(--green); }
+  .ai-tag-red { background:rgba(195,75,75,.1); border:1px solid rgba(195,75,75,.4); color:var(--red); }
+  .ai-tag-blue { background:rgba(11,196,227,.1); border:1px solid rgba(11,196,227,.4); color:var(--blue-accent); }
+  .ai-champ-analysis { background:rgba(255,255,255,.02); border:1px solid rgba(200,170,110,.1); padding:14px 18px; margin-bottom:10px; }
+  .ai-champ-title { font-family:'Bebas Neue',sans-serif; font-size:1rem; letter-spacing:2px; color:var(--gold); margin-bottom:6px; }
+  .ai-tip { font-size:.82rem; color:rgba(200,170,110,.6); font-style:italic; margin-top:6px; padding-left:10px; border-left:2px solid var(--gold-dark); }
+  .ai-radar-wrap { position:relative; max-width:280px; margin:0 auto; }
+  .ai-btn { background:linear-gradient(135deg,rgba(11,196,227,.15),rgba(155,89,182,.15)); border:1px solid var(--blue-accent); color:var(--blue-accent); font-family:'Bebas Neue',sans-serif; font-size:1rem; letter-spacing:3px; padding:12px 28px; cursor:pointer; transition:all .2s; }
+  .ai-btn:hover { background:linear-gradient(135deg,rgba(11,196,227,.3),rgba(155,89,182,.3)); box-shadow:0 0 20px rgba(11,196,227,.2); }
+
+  /* LOADING */
+  #loading { display:none; flex-direction:column; align-items:center; justify-content:center; padding:60px; z-index:10; position:relative; }
+  .loader-ring { width:60px; height:60px; border:3px solid rgba(200,170,110,.1); border-top-color:var(--gold); border-radius:50%; animation:spin 1s linear infinite; margin-bottom:20px; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .loader-text { font-family:'Share Tech Mono',monospace; font-size:.85rem; color:var(--gold); letter-spacing:2px; animation:pulse 1.5s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:.5} 50%{opacity:1} }
+
+  /* ERROR */
+  #error-box { display:none; background:rgba(195,75,75,.1); border:1px solid rgba(195,75,75,.4); color:#e88; padding:16px 24px; margin:20px auto; max-width:620px; font-family:'Share Tech Mono',monospace; font-size:.85rem; text-align:center; position:relative; z-index:10; }
+
+  /* MODAL */
+  #api-modal { position:fixed; inset:0; background:rgba(0,5,15,.95); z-index:100; display:flex; align-items:center; justify-content:center; padding:20px; }
+  .modal-box { background:var(--blue-dark); border:1px solid var(--border); padding:40px; max-width:560px; width:100%; position:relative; }
+  .modal-box::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; background:linear-gradient(90deg,var(--gold-dark),var(--gold),var(--blue-accent),var(--gold)); }
+  .modal-box h2 { font-family:'Bebas Neue',sans-serif; font-size:1.8rem; letter-spacing:3px; color:var(--gold); margin-bottom:8px; }
+  .modal-box p { color:rgba(200,170,110,.7); font-size:.9rem; line-height:1.6; margin-bottom:20px; }
+  .modal-box ol { color:rgba(200,170,110,.8); font-size:.85rem; margin-left:20px; margin-bottom:24px; line-height:2; }
+  .modal-box a { color:var(--blue-accent); }
+  .modal-input { width:100%; background:var(--blue-deep); border:1px solid var(--border); color:var(--gold-light); font-family:'Share Tech Mono',monospace; font-size:.85rem; padding:12px 16px; outline:none; margin-bottom:12px; letter-spacing:1px; }
+  .modal-input:focus { border-color:var(--gold); }
+  .modal-btn { width:100%; background:linear-gradient(135deg,var(--gold-dark),var(--gold)); border:none; color:var(--blue-deep); font-family:'Bebas Neue',sans-serif; font-size:1.1rem; letter-spacing:3px; padding:14px; cursor:pointer; transition:all .2s; }
+  .modal-btn:hover { filter:brightness(1.1); }
+  .demo-btn { width:100%; background:transparent; border:1px solid var(--border); color:var(--gold); font-family:'Bebas Neue',sans-serif; font-size:1rem; letter-spacing:3px; padding:12px; cursor:pointer; margin-top:10px; transition:all .2s; }
+  .demo-btn:hover { border-color:var(--gold); }
+  .modal-note { margin-top:16px; font-size:.72rem; color:rgba(200,170,110,.35); font-family:'Share Tech Mono',monospace; text-align:center; }
+
+
+  /* ── MOBILE RESPONSIVE ── */
+  @media (max-width: 768px) {
+    /* Header */
+    header { padding: 12px 16px; }
+    .logo { font-size: 1.5rem; letter-spacing: 2px; }
+    .logo-sub { display: none; }
+    .region-badge { font-size: .6rem; padding: 3px 8px; letter-spacing: 1px; }
+    header button { font-size: .7rem; padding: 5px 10px; }
+
+    /* Hero */
+    .hero-section { padding: 72px 16px 28px; min-height: 100svh; justify-content: flex-start; padding-top: 80px; }
+    .hero-badge { font-size: .55rem; letter-spacing: 2px; padding: 4px 10px; }
+    .hero-title { font-size: 3.8rem; letter-spacing: 3px; }
+    .hero-subtitle { font-size: .9rem; line-height: 1.7; }
+    .hero-features { gap: 6px; }
+    .hero-feat { font-size: .7rem; padding: 4px 10px; gap: 4px; }
+    .search-wrap { width: 100%; }
+    .search-label { font-size: .58rem; }
+    .search-bar { flex-direction: column; }
+    .search-input { width: 100%; font-size: .85rem; padding: 13px 14px; border-right: none; border-bottom: 1px solid rgba(200,155,60,.15); }
+    .region-select { width: 100%; padding: 11px 14px; border-right: none; border-bottom: 1px solid rgba(200,155,60,.15); text-align: left; font-size: .9rem; }
+    .search-btn { width: 100%; padding: 14px; font-size: 1rem; letter-spacing: 3px; }
+
+    /* Main content */
+    #main-content { padding: 0 10px 40px; }
+
+    /* Summoner card */
+    .summoner-card { padding: 14px 16px; gap: 12px; flex-wrap: wrap; }
+    .summoner-avatar { width: 52px; height: 52px; font-size: 1.3rem; }
+    .summoner-info h2 { font-size: 1.2rem; letter-spacing: 1px; }
+    .rank-badge { font-size: .75rem; padding: 2px 8px; }
+    .summoner-stats { margin-left: 0; width: 100%; justify-content: space-around; gap: 4px; padding-top: 10px; border-top: 1px solid var(--border); }
+    .stat-block .val { font-size: 1.3rem; }
+    .stat-block .lbl { font-size: .58rem; letter-spacing: 1px; }
+
+    /* Tabs */
+    .tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; padding-bottom: 0; }
+    .tabs::-webkit-scrollbar { display: none; }
+    .tab-btn { font-size: .7rem; letter-spacing: 1px; padding: 10px 12px; white-space: nowrap; flex-shrink: 0; }
+
+    /* Grids */
+    .grid-2, .grid-3 { grid-template-columns: 1fr; gap: 10px; }
+    .grid-3 > .panel[style*="span 2"] { grid-column: span 1 !important; }
+
+    /* Panels */
+    .panel { padding: 12px 14px; }
+    .panel-title { font-size: .85rem; letter-spacing: 2px; margin-bottom: 10px; }
+
+    /* Highlights */
+    .highlight-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+    .highlight-card { padding: 12px; }
+    .highlight-label { font-size: .65rem; letter-spacing: 2px; }
+    .highlight-val { font-size: 1.2rem; }
+    .highlight-sub { font-size: .62rem; }
+
+    /* Match list */
+    .match-item { grid-template-columns: 3px 38px 26px 1fr auto; gap: 7px; padding: 8px 8px; }
+    .match-cs, .match-dmg { display: none; }
+    .match-result-bar { min-height: 44px; }
+    .champ-icon { width: 34px; height: 34px; border-width: 1px; }
+    .champ-icon img { width: 100%; height: 100%; }
+    .perf-score { width: 26px; height: 26px; font-size: .78rem; border-width: 1px; }
+    .match-champ { font-size: .82rem; }
+    .match-vs { font-size: .62rem; }
+    .match-kda { font-size: .76rem; }
+    .match-time { font-size: .68rem; }
+
+    /* Champion rows */
+    .champ-row { grid-template-columns: 28px 1fr auto auto; gap: 8px; }
+    .champ-row-icon { width: 26px; height: 26px; font-size: .5rem; }
+
+    /* Charts */
+    canvas { max-height: 180px !important; }
+
+    /* Streak */
+    .streak-banner { font-size: .8rem; letter-spacing: 1px; padding: 8px 12px; }
+
+    /* AI panel */
+    .ai-panel { padding: 14px; }
+    .ai-btn { font-size: .8rem; letter-spacing: 1px; padding: 10px 14px; }
+
+    /* Phase bars */
+    .phase-label span:first-child { font-size: .72rem; }
+    .phase-label span:last-child { font-size: .7rem; }
+
+    /* Modal */
+    #api-modal { padding: 12px; }
+    .modal-box { padding: 20px 16px; }
+    .modal-box h2 { font-size: 1.3rem; letter-spacing: 2px; }
+    .modal-box p { font-size: .82rem; }
+    .modal-box ol { font-size: .78rem; margin-left: 14px; }
+    .modal-input { font-size: .8rem; padding: 10px 12px; }
+    .modal-btn { font-size: .95rem; letter-spacing: 2px; padding: 12px; }
+    .demo-btn { font-size: .88rem; padding: 10px; }
+
+    /* Mastery grid */
+    #challenges-list > div:first-child { grid-template-columns: 1fr 1fr !important; }
+  }
+
+  @media (max-width: 480px) {
+    .hero-title { font-size: 3rem; }
+    .highlight-grid { grid-template-columns: 1fr; }
+    .summoner-stats { gap: 2px; }
+    .stat-block .val { font-size: 1.1rem; }
+    .hero-features { justify-content: center; }
+  }
+
+  @media (max-width: 360px) {
+    .hero-title { font-size: 2.6rem; }
+    .tab-btn { font-size: .62rem; padding: 9px 10px; }
+  }
+
+  /* ── ANIMATIONS ── */
+
+  /* Entrance animations */
+  @keyframes fadeUp    { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes fadeIn    { from { opacity:0; } to { opacity:1; } }
+  @keyframes slideLeft { from { opacity:0; transform:translateX(-30px); } to { opacity:1; transform:translateX(0); } }
+  @keyframes scaleIn   { from { opacity:0; transform:scale(.9); } to { opacity:1; transform:scale(1); } }
+  @keyframes countBar  { from { transform:scaleX(0); } to { transform:scaleX(1); } }
+  @keyframes glow      { 0%,100% { box-shadow:0 0 4px var(--gold); } 50% { box-shadow:0 0 16px var(--gold), 0 0 32px rgba(200,155,60,.3); } }
+  @keyframes blink     { 0%,100% { opacity:1; } 50% { opacity:0; } }
+  @keyframes ripple    { to { transform:scale(3); opacity:0; } }
+  @keyframes particleFloat {
+    0%   { transform:translateY(0) translateX(0); opacity:0; }
+    10%  { opacity:.8; }
+    90%  { opacity:.3; }
+    100% { transform:translateY(-100vh) translateX(var(--dx,20px)); opacity:0; }
+  }
+  @keyframes scanline  { 0% { top:0; opacity:.6; } 100% { top:100%; opacity:0; } }
+  @keyframes cornerPulse { 0%,100% { opacity:.25; } 50% { opacity:.8; } }
+  @keyframes shimmerText {
+    0%   { background-position: 200% center; }
+    100% { background-position: -200% center; }
+  }
+
+  /* Apply animations */
+  .hero-badge    { animation: fadeUp .6s ease both .1s; }
+  .hero-title    { animation: fadeUp .7s ease both .2s; }
+  .hero-subtitle { animation: fadeUp .6s ease both .35s; }
+  .hero-features { animation: fadeUp .6s ease both .45s; }
+  .search-wrap   { animation: fadeUp .6s ease both .55s; }
+  .summoner-card { animation: slideLeft .6s cubic-bezier(.16,1,.3,1) both; }
+  .rank-badge    { animation: scaleIn .4s cubic-bezier(.16,1,.3,1) both .5s; }
+  .streak-banner { animation: scaleIn .5s cubic-bezier(.16,1,.3,1) both; }
+  .highlight-card { animation: fadeUp .5s ease both; }
+  .highlight-card:nth-child(1) { animation-delay:.05s; }
+  .highlight-card:nth-child(2) { animation-delay:.1s; }
+  .highlight-card:nth-child(3) { animation-delay:.15s; }
+  .highlight-card:nth-child(4) { animation-delay:.2s; }
+  .highlight-card:nth-child(5) { animation-delay:.25s; }
+  .highlight-card:nth-child(6) { animation-delay:.3s; }
+  .score-s { animation: glow 2s ease-in-out infinite; }
+  .kda-great { text-shadow: 0 0 8px #00d4aa; }
+  .wr-bar { animation: countBar .8s ease both .3s; transform-origin: left; }
+  .phase-bar-fill { animation: countBar 1s ease both .4s !important; transform-origin: left; }
+  .loader-text::after { content:'_'; animation: blink .7s step-end infinite; }
+
+  /* Hover transitions - smooth and simple */
+  .panel { transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease; }
+  .panel:hover { transform: translateY(-2px); box-shadow: 0 12px 40px rgba(0,0,0,.5), 0 0 0 1px rgba(200,155,60,.15); border-color: rgba(200,155,60,.3); }
+  .match-item { transition: background .15s, padding-left .15s; }
+  .match-item:hover { background: rgba(200,155,60,.05) !important; padding-left: 18px; }
+  .highlight-card { transition: transform .2s ease, border-color .2s, box-shadow .2s; }
+  .highlight-card:hover { transform: translateY(-4px); border-color: rgba(200,155,60,.5) !important; box-shadow: 0 12px 32px rgba(0,0,0,.5); }
+  .champ-row { transition: background .15s, padding-left .15s; }
+  .champ-row:hover { background: rgba(200,155,60,.05); padding-left: 8px; }
+  .tab-btn { transition: color .2s, border-color .2s; }
+  .search-btn { transition: filter .2s, box-shadow .2s; }
+  .search-btn:hover { filter: brightness(1.15); box-shadow: 0 0 24px rgba(200,155,60,.4); }
+  .hero-feat { transition: all .2s; }
+  .hero-feat:hover { background: rgba(200,155,60,.12); border-color: rgba(200,155,60,.4); transform: translateY(-2px); }
+  .perf-score { transition: transform .2s; }
+  .perf-score:hover { transform: scale(1.15); }
+
+  /* Scan line */
+  .scanline {
+    position: fixed; left: 0; right: 0; height: 1px; pointer-events: none; z-index: 999;
+    background: linear-gradient(90deg, transparent 0%, rgba(0,200,255,.4) 40%, rgba(200,155,60,.3) 60%, transparent 100%);
+    animation: scanline 10s linear infinite;
+  }
+
+  /* Corner decorations */
+  .corner { position: fixed; width: 24px; height: 24px; pointer-events: none; z-index: 998; animation: cornerPulse 3s ease-in-out infinite; }
+  .corner::before, .corner::after { content: ''; position: absolute; background: var(--gold); }
+  .corner::before { width: 2px; height: 100%; }
+  .corner::after  { width: 100%; height: 2px; }
+  .corner-tl { top: 16px; left: 16px; }
+  .corner-tl::before { top: 0; left: 0; }
+  .corner-tl::after  { top: 0; left: 0; }
+  .corner-tr { top: 16px; right: 16px; transform: rotate(90deg); }
+  .corner-bl { bottom: 16px; left: 16px; transform: rotate(-90deg); }
+  .corner-br { bottom: 16px; right: 16px; transform: rotate(180deg); }
+
+  /* Particles */
+  .particle {
+    position: fixed; border-radius: 50%; pointer-events: none; z-index: 1;
+    animation: particleFloat linear infinite;
+  }
+
+  /* Ripple */
+  .ripple-fx {
+    position: absolute; border-radius: 50%;
+    background: rgba(255,255,255,.25);
+    transform: scale(0);
+    animation: ripple .5s ease-out forwards;
+    pointer-events: none;
+  }
+
+  /* Mobile: keep animations but lighter */
+  @media (max-width: 768px) {
+    .particle { display: none; }
+    .scanline { display: none; }
+    .corner   { display: none; }
+    .panel:hover { transform: none; }
+    .match-item:hover { padding-left: 14px; }
+  }
+
+  /* Respect prefers-reduced-motion */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition-duration: .01ms !important; }
+  }
+
+</style>
+</head>
+<body>
+
+<!-- SCOREBOARD OVERLAY -->
+<div id="match-detail-overlay" class="match-detail-overlay" style="display:none" onclick="closeMatchDetail(event)">
+  <div class="match-detail-box" id="match-detail-box"></div>
+</div>
+
+<!-- AMBIENT ELEMENTS -->
+<div class="scanline"></div>
+<div class="corner corner-tl"></div>
+<div class="corner corner-tr"></div>
+<div class="corner corner-bl"></div>
+<div class="corner corner-br"></div>
+
+<!-- MODAL -->
+<div id="api-modal">
+  <div class="modal-box">
+    <h2>⚔ LOL SCOUT</h2>
+    <p>Pour accéder à tes stats en temps réel, tu as besoin d'une clé API Riot Games <strong>gratuite</strong>.</p>
+    <ol>
+      <li>Va sur <a href="https://developer.riotgames.com" target="_blank">developer.riotgames.com</a></li>
+      <li>Connecte-toi avec ton compte Riot</li>
+      <li>Copie ta <strong>Development API Key</strong></li>
+      <li>Colle-la ci-dessous</li>
+    </ol>
+    <input class="modal-input" id="api-key-input" type="text" placeholder="RGAPI-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+    <div style="font-size:.72rem;color:rgba(200,170,110,.4);font-family:'Share Tech Mono',monospace;margin-bottom:14px;">⚠ La clé dev expire toutes les 24h.</div>
+    <button class="modal-btn" onclick="saveApiKey()">ACCÉDER AU TRACKER</button>
+    <button class="demo-btn" onclick="loadDemo()">VOIR UN EXEMPLE AVEC DES DONNÉES FICTIVES</button>
+    <div class="modal-note">Ta clé est stockée uniquement dans ton navigateur. Elle n'est jamais envoyée ailleurs que chez Riot.</div>
+  </div>
+</div>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">LoL<span>Scout</span><span class="logo-sub">RANKED TRACKER</span></div>
+  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+    <div class="game-switch">
+      <button class="game-btn active" id="btn-lol" onclick="switchGame('lol')">⚔ LOL</button>
+      <button class="game-btn" id="btn-tft" onclick="switchGame('tft')">🎲 TFT</button>
+    </div>
+    <div class="region-badge" id="region-display">VN2</div>
+    <button onclick="changeApiKey()" style="background:transparent;border:1px solid var(--border);color:var(--gold);font-family:'Rajdhani',sans-serif;font-size:.8rem;letter-spacing:1px;padding:6px 14px;cursor:pointer;">CHANGER CLÉ</button>
+  </div>
+</header>
+
+<!-- HERO -->
+<div class="hero-section">
+  <div class="hero-bg-glow"></div>
+  <div class="hero-content">
+    <div class="hero-badge">RANKED TRACKER VN · SEA · EUW · NA · KR</div>
+    <div class="hero-title">LOL<span>SCOUT</span></div>
+    <div class="hero-subtitle">Analyse tes parties.<br>Identifie tes failles.<br>Monte en elo.</div>
+    <div class="hero-features">
+      <div class="hero-feat"><span>📊</span>Stats temps réel</div>
+      <div class="hero-feat"><span>🤖</span>Coaching IA</div>
+      <div class="hero-feat"><span>🔴</span>Live game</div>
+      <div class="hero-feat"><span>🏆</span>Maîtrise</div>
+    </div>
+  </div>
+  <div class="search-wrap">
+    <div class="search-label">ENTRE TON PSEUDO RIOT</div>
+    <div class="search-bar">
+      <input class="search-input" id="summoner-input" type="text" placeholder="GameName#TAG" />
+      <select class="region-select" id="region-select">
+        <option value="vn2">VN</option>
+        <option value="euw1">EUW</option>
+        <option value="eun1">EUNE</option>
+        <option value="na1">NA</option>
+        <option value="kr">KR</option>
+        <option value="br1">BR</option>
+        <option value="sg2">SG</option>
+        <option value="th2">TH</option>
+        <option value="tw2">TW</option>
+        <option value="jp1">JP</option>
+      </select>
+      <button class="search-btn" onclick="ripple(event);searchSummoner()">ANALYSER</button>
+    </div>
+    <div class="api-note">Données officielles Riot Games API · Clé personnelle requise</div>
+  </div>
+</div>
+
+<div id="error-box"></div>
+<div id="loading"><div class="loader-ring"></div><div class="loader-text" id="loading-text">CHARGEMENT DES DONNÉES...</div></div>
+
+<!-- TFT MAIN -->
+<div id="tft-content" style="display:none;position:relative;z-index:10;max-width:1300px;margin:0 auto;padding:0 24px 60px">
+  <div class="summoner-card" id="tft-summoner-card"></div>
+  <div class="tabs" id="tft-tabs">
+    <button class="tab-btn active" onclick="switchTftTab('overview')">OVERVIEW</button>
+    <button class="tab-btn" onclick="switchTftTab('history')">HISTORIQUE</button>
+    <button class="tab-btn" onclick="switchTftTab('comps')">COMPS</button>
+    <button class="tab-btn" onclick="switchTftTab('units')">UNITÉS</button>
+    <button class="tab-btn" onclick="switchTftTab('augments')">AUGMENTS</button>
+    <button class="tab-btn" onclick="switchTftTab('ai')">🤖 COACHING IA</button>
+  </div>
+
+  <!-- TFT: OVERVIEW -->
+  <div class="tft-tab active" id="tft-tab-overview">
+    <div class="grid-2">
+      <div class="panel"><div class="panel-title">PLACEMENT MOYEN</div><canvas id="chartTftPlacement"></canvas></div>
+      <div class="panel"><div class="panel-title">TOP 4 vs FLOP</div><canvas id="chartTftTopBot"></canvas></div>
+    </div>
+    <div class="grid-3">
+      <div class="panel"><div class="panel-title">TOP 4 RATE</div><div id="tft-top4"></div></div>
+      <div class="panel"><div class="panel-title">WIN RATE (1er)</div><div id="tft-winrate"></div></div>
+      <div class="panel"><div class="panel-title">PROGRESSION LP</div><canvas id="chartTftLP"></canvas></div>
+    </div>
+    <div class="panel grid-full"><div class="panel-title">DERNIÈRES PARTIES</div><div id="tft-recent"></div></div>
+  </div>
+
+  <!-- TFT: HISTORY -->
+  <div class="tft-tab" id="tft-tab-history" style="display:none">
+    <div class="panel grid-full"><div class="panel-title">HISTORIQUE COMPLET (20 PARTIES)</div><div id="tft-history-list"></div></div>
+  </div>
+
+  <!-- TFT: COMPS -->
+  <div class="tft-tab" id="tft-tab-comps" style="display:none">
+    <div class="panel grid-full"><div class="panel-title">COMPOSITIONS JOUÉES</div><div id="tft-comps-list"></div></div>
+  </div>
+
+  <!-- TFT: UNITS -->
+  <div class="tft-tab" id="tft-tab-units" style="display:none">
+    <div class="grid-2">
+      <div class="panel"><div class="panel-title">UNITÉS LES PLUS JOUÉES</div><div id="tft-units-list"></div></div>
+      <div class="panel"><div class="panel-title">UNITÉS PAR COÛT</div><canvas id="chartTftUnits"></canvas></div>
+    </div>
+  </div>
+
+  <!-- TFT: AUGMENTS -->
+  <div class="tft-tab" id="tft-tab-augments" style="display:none">
+    <div class="panel grid-full"><div class="panel-title">AUGMENTS LES PLUS PRIS</div><div id="tft-augments-list"></div></div>
+  </div>
+
+  <!-- TFT: AI COACHING -->
+  <div class="tft-tab" id="tft-tab-ai" style="display:none">
+    <div class="ai-panel">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px">
+        <div>
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:1.4rem;letter-spacing:3px;color:var(--gold)">COACHING TFT IA</div>
+          <div style="font-size:.8rem;color:rgba(200,155,60,.5);font-family:'Share Tech Mono',monospace">Analyse tes comps, augments et décisions · Groq Llama 3.3</div>
+        </div>
+        <button class="ai-btn" id="tft-ai-btn" onclick="generateTftAnalysis()">⚡ ANALYSER MON TFT</button>
+      </div>
+      <div id="tft-ai-output">
+        <div style="text-align:center;padding:60px;color:rgba(200,155,60,.3)">
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:4px;margin-bottom:8px">ANALYSE NON GÉNÉRÉE</div>
+          <div style="font-size:.8rem;font-family:'Share Tech Mono',monospace">Clique sur "Analyser" après avoir chargé tes parties</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div id="main-content">
+  <div class="summoner-card" id="summoner-card"></div>
+  <div id="streak-container"></div>
+
+  <!-- TABS -->
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('overview')">OVERVIEW</button>
+    <button class="tab-btn" onclick="switchTab('phases')">EARLY / MID / LATE</button>
+    <button class="tab-btn" onclick="switchTab('highlights')">HIGHLIGHTS</button>
+    <button class="tab-btn" onclick="switchTab('roles')">🗺️ RÔLES</button>
+    <button class="tab-btn" onclick="switchTab('timing')">⏱️ TIMING</button>
+    <button class="tab-btn" onclick="switchTab('goals')">🎯 OBJECTIFS</button>
+    <button class="tab-btn" onclick="switchTab('clips')">🎬 CLIPS</button>
+    <button class="tab-btn" onclick="switchTab('mastery')">🏆 MAÎTRISE</button>
+    <button class="tab-btn" onclick="switchTab('live')">🔴 LIVE</button>
+    <button class="tab-btn" onclick="switchTab('ai')">🤖 ANALYSE IA</button>
+  </div>
+
+  <!-- TAB: OVERVIEW -->
+  <div class="tab-content active" id="tab-overview">
+    <div class="grid-2">
+      <div class="panel"><div class="panel-title">WINRATE GLOBAL</div><canvas id="chartWinrate"></canvas></div>
+      <div class="panel"><div class="panel-title">PROGRESSION LP</div><canvas id="chartLP"></canvas></div>
+    </div>
+    <div class="grid-2">
+      <div class="panel"><div class="panel-title">TOP CHAMPIONS</div><div id="champion-list"></div></div>
+      <div class="panel"><div class="panel-title">PIRES MATCHUPS</div><div id="matchup-list"></div></div>
+    </div>
+    <div class="grid-3">
+      <div class="panel" style="grid-column:span 2"><div class="panel-title">KDA PAR CHAMPION</div><canvas id="chartKDA"></canvas></div>
+      <div class="panel"><div class="panel-title">RÉPARTITION DÉGÂTS</div><canvas id="chartDmg"></canvas></div>
+    </div>
+    <div class="panel grid-full">
+      <div class="panel-title">HISTORIQUE DES PARTIES <span style="font-size:.65rem;color:rgba(200,155,60,.4);letter-spacing:1px;font-family:'Share Tech Mono',monospace">— CLIQUE POUR VOIR LE SCOREBOARD</span></div>
+      <div id="match-list"></div>
+    </div>
+    <div class="panel grid-full">
+      <div class="panel-title">🧪 ANALYSE ITEMISATION</div>
+      <div id="item-analysis"></div>
+    </div>
+  </div>
+
+  <!-- TAB: PHASES -->
+  <div class="tab-content" id="tab-phases">
+    <div class="grid-2">
+      <div class="panel">
+        <div class="panel-title">PERFORMANCE PAR PHASE</div>
+        <div id="phase-bars"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">RADAR DE COMPÉTENCES</div>
+        <div class="ai-radar-wrap"><canvas id="chartRadar"></canvas></div>
+      </div>
+    </div>
+    <div class="grid-3">
+      <div class="panel">
+        <div class="panel-title">EARLY GAME (0-15min)</div>
+        <div id="early-stats"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">MID GAME (15-25min)</div>
+        <div id="mid-stats"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">LATE GAME (25min+)</div>
+        <div id="late-stats"></div>
+      </div>
+    </div>
+    <div class="panel grid-full">
+      <div class="panel-title">WINRATE PAR DURÉE DE PARTIE</div>
+      <canvas id="chartDuration" style="max-height:200px"></canvas>
+    </div>
+  </div>
+
+  <!-- TAB: HIGHLIGHTS -->
+  <div class="tab-content" id="tab-highlights">
+    <div class="highlight-grid" id="highlight-grid"></div>
+    <div class="panel grid-full">
+      <div class="panel-title">🏆 MEILLEURES PERFORMANCES</div>
+      <div id="best-games"></div>
+    </div>
+    <div class="panel grid-full" style="margin-top:20px">
+      <div class="panel-title">💀 PIRES PERFORMANCES</div>
+      <div id="worst-games"></div>
+    </div>
+  </div>
+
+  <!-- TAB: ROLES -->
+  <div class="tab-content" id="tab-roles">
+    <div class="grid-2">
+      <div class="panel">
+        <div class="panel-title">WINRATE PAR RÔLE</div>
+        <canvas id="chartRoles"></canvas>
+      </div>
+      <div class="panel">
+        <div class="panel-title">STATS PAR RÔLE</div>
+        <div id="role-stats"></div>
+      </div>
+    </div>
+    <div class="panel grid-full">
+      <div class="panel-title">PERFORMANCE PAR POSITION</div>
+      <div id="role-detail"></div>
+    </div>
+  </div>
+
+  <!-- TAB: TIMING -->
+  <div class="tab-content" id="tab-timing">
+    <div class="grid-2">
+      <div class="panel">
+        <div class="panel-title">MORTS PAR PHASE</div>
+        <canvas id="chartDeathTiming"></canvas>
+      </div>
+      <div class="panel">
+        <div class="panel-title">OBJECTIFS PAR MINUTE</div>
+        <canvas id="chartObjTiming"></canvas>
+      </div>
+    </div>
+    <div class="grid-3">
+      <div class="panel">
+        <div class="panel-title">⚔️ FIRST BLOOD</div>
+        <div id="timing-fb"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">⏱️ DURÉE MOYENNE</div>
+        <div id="timing-dur"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">📈 MOMENTUM</div>
+        <div id="timing-momentum"></div>
+      </div>
+    </div>
+    <div class="panel grid-full">
+      <div class="panel-title">COMPARAISON ELO MOYEN (GOLD IV VN)</div>
+      <div id="elo-compare"></div>
+    </div>
+  </div>
+
+  <!-- TAB: GOALS -->
+  <div class="tab-content" id="tab-goals">
+    <div class="panel grid-full" id="goals-panel">
+      <div style="text-align:center;padding:40px;color:rgba(200,155,60,.3)">
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:4px;margin-bottom:8px">OBJECTIFS NON GÉNÉRÉS</div>
+        <div style="font-size:.8rem;font-family:'Share Tech Mono',monospace">Charge tes stats puis clique pour générer tes objectifs</div>
+      </div>
+    </div>
+    <div style="text-align:center;margin-top:16px">
+      <button class="ai-btn" onclick="generateGoals()">🎯 GÉNÉRER MES OBJECTIFS HEBDO</button>
+      <div style="font-size:.7rem;color:rgba(200,155,60,.3);margin-top:8px;font-family:'Share Tech Mono',monospace">Powered by Groq · Llama 3.3 — Objectifs personnalisés basés sur tes stats</div>
+    </div>
+  </div>
+
+  <!-- TAB: CLIPS -->
+  <div class="tab-content" id="tab-clips">
+    <div class="panel grid-full" style="margin-bottom:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+        <div>
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:3px;color:var(--gold)">🎬 MES CLIPS MEDAL</div>
+          <div style="font-size:.72rem;color:rgba(200,155,60,.4);font-family:'Share Tech Mono',monospace">Tes meilleurs moments capturés automatiquement</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <input id="medal-key-input" type="text" placeholder="Ta clé API Medal..." 
+            style="background:rgba(8,14,26,.95);border:1px solid rgba(200,155,60,.2);color:var(--gold-light);font-family:'Share Tech Mono',monospace;font-size:.75rem;padding:8px 12px;outline:none;width:220px" />
+          <button onclick="loadMedalClips()" style="background:linear-gradient(135deg,#1a1a2e,#16213e);border:1px solid rgba(200,155,60,.4);color:var(--gold);font-family:'Bebas Neue',sans-serif;font-size:.85rem;letter-spacing:2px;padding:8px 16px;cursor:pointer;transition:all .2s" onmouseover="this.style.borderColor='var(--gold)'" onmouseout="this.style.borderColor='rgba(200,155,60,.4)'">CHARGER</button>
+          <a href="https://developers.medal.tv" target="_blank" style="font-family:'Share Tech Mono',monospace;font-size:.65rem;color:var(--blue-accent)">Obtenir une clé →</a>
+        </div>
+      </div>
+    </div>
+    <div id="clips-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px">
+      <div style="text-align:center;padding:60px;color:rgba(200,155,60,.3);grid-column:1/-1">
+        <div style="font-size:3rem;margin-bottom:12px">🎬</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:3px;margin-bottom:6px">AUCUN CLIP CHARGÉ</div>
+        <div style="font-size:.75rem;font-family:'Share Tech Mono',monospace">Entre ta clé API Medal ci-dessus pour voir tes clips</div>
+        <div style="margin-top:16px;font-size:.7rem;color:rgba(200,155,60,.2);font-family:'Share Tech Mono',monospace">
+          1. Va sur developers.medal.tv → génère une Public API Key<br>
+          2. Installe Medal sur ton PC quand tu joues chez toi<br>
+          3. Medal clippe automatiquement tes kills/pentakills
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: MASTERY -->
+  <div class="tab-content" id="tab-mastery">
+    <div class="grid-2">
+      <div class="panel">
+        <div class="panel-title">TOP MAÎTRISES</div>
+        <div id="mastery-list"><div style="color:rgba(200,170,110,.4);font-size:.85rem;padding:20px;text-align:center;font-family:'Share Tech Mono',monospace">Chargement...</div></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">SCORE TOTAL</div>
+        <div id="mastery-score" style="text-align:center;padding:30px">
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:3rem;color:var(--gold)" id="mastery-total">—</div>
+          <div style="font-size:.8rem;letter-spacing:2px;color:rgba(200,170,110,.5)">POINTS DE MAÎTRISE TOTAUX</div>
+        </div>
+        <canvas id="chartMastery" style="max-height:200px"></canvas>
+      </div>
+    </div>
+    <div class="panel grid-full">
+      <div class="panel-title">CHALLENGES</div>
+      <div id="challenges-list"><div style="color:rgba(200,170,110,.4);font-size:.85rem;padding:20px;text-align:center;font-family:'Share Tech Mono',monospace">Chargement...</div></div>
+    </div>
+  </div>
+
+  <!-- TAB: LIVE -->
+  <div class="tab-content" id="tab-live">
+    <div class="panel grid-full" id="live-panel">
+      <div style="text-align:center;padding:60px">
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:4px;color:rgba(200,170,110,.4);margin-bottom:8px">VÉRIFICATION EN COURS...</div>
+        <div style="font-size:.8rem;font-family:'Share Tech Mono',monospace;color:rgba(200,170,110,.3)">Recherche d'une partie active</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: AI -->
+  <div class="tab-content" id="tab-ai">
+    <div class="ai-panel" id="ai-container">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+        <div>
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:1.4rem;letter-spacing:3px;color:var(--gold)">ANALYSE IA APPROFONDIE</div>
+          <div style="font-size:.8rem;color:rgba(200,170,110,.5);font-family:'Share Tech Mono',monospace">Powered by Groq · Llama 3.3 70B — Gratuit &amp; Rapide ⚡</div>
+        </div>
+        <button class="ai-btn" id="ai-btn" onclick="generateAIAnalysis()">⚡ GÉNÉRER L&#39;ANALYSE</button>
+        <button onclick="resetGroqKey()" style="background:transparent;border:none;color:rgba(200,155,60,.3);font-family:'Share Tech Mono',monospace;font-size:.6rem;cursor:pointer;margin-top:4px;display:block">changer clé Groq</button>
+      </div>
+      <div id="ai-output">
+        <div style="text-align:center;padding:60px;color:rgba(200,170,110,.3);">
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:4px;margin-bottom:8px">ANALYSE NON GÉNÉRÉE</div>
+          <div style="font-size:.8rem;font-family:'Share Tech Mono',monospace">Clique sur "Générer l'Analyse" pour obtenir un rapport IA complet</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const RIOT_ROUTING = {
+  euw1:{platform:'euw1',region:'europe',account:'europe',match:'europe'},
+  eun1:{platform:'eun1',region:'europe',account:'europe',match:'europe'},
+  na1:{platform:'na1',region:'americas',account:'americas',match:'americas'},
+  kr:{platform:'kr',region:'asia',account:'asia',match:'asia'},
+  br1:{platform:'br1',region:'americas',account:'americas',match:'americas'},
+  vn2:{platform:'vn2',region:'sea',account:'asia',match:'sea'},
+  sg2:{platform:'sg2',region:'sea',account:'asia',match:'sea'},
+  th2:{platform:'th2',region:'sea',account:'asia',match:'sea'},
+  tw2:{platform:'tw2',region:'sea',account:'asia',match:'sea'},
+  jp1:{platform:'jp1',region:'asia',account:'asia',match:'asia'},
+};
+
+const VERSION = '14.10.1';
+let API_KEY = '';
+let charts = {};
+let globalMatchData = null; // stored for AI analysis
+
+// ── API KEY ──────────────────────────────────────────────────────────
+function saveApiKey() {
+  const k = document.getElementById('api-key-input').value.trim();
+  if (!k) return alert('Entre ta clé API Riot.');
+  // Accepte toutes les clés RGAPI (dev ou personal)
+  if (!k.includes('RGAPI')) {
+    if (!confirm('Ta clé ne contient pas "RGAPI" — es-tu sûr de vouloir continuer ?')) return;
+  }
+  localStorage.setItem('lol_scout_api_key', k);
+  API_KEY = k;
+  document.getElementById('api-modal').style.display = 'none';
+}
+function changeApiKey() { document.getElementById('api-modal').style.display = 'flex'; }
+
+// Champion data cache
+let champData = null;
+async function loadChampData() {
+  if (champData) return champData;
+  const cached = sessionStorage.getItem('champ_data');
+  if (cached) { champData = JSON.parse(cached); return champData; }
+  try {
+    const res = await fetch(`https://ddragon.leagueoflegends.com/cdn/${VERSION}/data/en_US/champion.json`);
+    const json = await res.json();
+    champData = {};
+    Object.values(json.data).forEach(c => { champData[c.key] = c.id; champData[c.id] = c; });
+    sessionStorage.setItem('champ_data', JSON.stringify(champData));
+  } catch(e) { champData = {}; }
+  return champData;
+}
+
+window.onload = () => {
+  const stored = localStorage.getItem('lol_scout_api_key');
+  if (stored) { API_KEY = stored; document.getElementById('api-key-input').value = stored; document.getElementById('api-modal').style.display = 'none'; }
+  const medalKey = localStorage.getItem('medal_api_key');
+  if (medalKey) { const el = document.getElementById('medal-key-input'); if(el) el.value = medalKey; }
+  document.getElementById('summoner-input').addEventListener('keydown', e => { if(e.key==='Enter') searchSummoner(); });
+  spawnParticles();
+  // Preload champ data in background
+  loadChampData();
+};
+
+function spawnParticles() {
+  const colors = ['rgba(200,155,60,.5)','rgba(0,200,255,.4)','rgba(168,85,247,.3)'];
+  const spawn = () => {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    const size = 2 + Math.random() * 3;
+    const dur = 10 + Math.random() * 14;
+    p.style.cssText = 'width:'+size+'px;height:'+size+'px;left:'+(Math.random()*100)+'vw;bottom:0;background:'+colors[Math.floor(Math.random()*colors.length)]+';--dx:'+(Math.random()*60-30)+'px;animation-duration:'+dur+'s;animation-delay:0s';
+    document.body.appendChild(p);
+    setTimeout(() => p.remove(), dur * 1000 + 500);
+  };
+  // Spawn initial batch
+  for (let i = 0; i < 6; i++) setTimeout(spawn, i * 400);
+  // Keep spawning
+  setInterval(spawn, 1200);
+}
+
+// ── TABS ─────────────────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  const tabs = ['overview','phases','highlights','roles','timing','goals','clips','mastery','live','ai'];
+  const idx = tabs.indexOf(name);
+  if (idx < 0) return;
+  document.querySelectorAll('.tab-btn')[idx].classList.add('active');
+  document.getElementById('tab-'+name).classList.add('active');
+  if (name === 'mastery' && globalMatchData) loadMastery();
+  if (name === 'clips') loadMedalClips();
+  if (name === 'live' && globalMatchData) loadLiveGame();
+  if (name === 'roles' && globalMatchData) renderRoles();
+  if (name === 'timing' && globalMatchData) renderTiming();
+}
+
+// ── RIOT API ─────────────────────────────────────────────────────────
+const PROXY_URL = 'https://wild-sound-1dde.nguyenyoan13.workers.dev';
+async function riotFetch(url, retries=2) {
+  // Utilise la route /riot si pas de clé locale (clé stockée dans Cloudflare env)
+  const useEnvKey = !API_KEY;
+  
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      let fetchUrl;
+      if (useEnvKey) {
+        // Clé stockée côté Cloudflare — plus sécurisé
+        fetchUrl = PROXY_URL + '/riot?path=' + encodeURIComponent(url);
+      } else {
+        // Clé locale (legacy)
+        const fullUrl = url + (url.includes('?') ? '&' : '?') + 'api_key=' + API_KEY;
+        fetchUrl = PROXY_URL + '?url=' + encodeURIComponent(fullUrl);
+      }
+      
+      const res = await fetch(fetchUrl, { signal: AbortSignal.timeout(10000) });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        const msg = err?.status?.message || 'HTTP ' + res.status;
+        if (res.status === 401 || res.status === 403) throw new Error(msg);
+        if (attempt < retries) { await new Promise(r => setTimeout(r, 400 * (attempt+1))); continue; }
+        throw new Error(msg);
+      }
+      const data = await res.json();
+      if (data.status && data.status.status_code && data.status.status_code !== 200)
+        throw new Error(data.status.message || 'Riot API ' + data.status.status_code);
+      return data;
+    } catch(e) {
+      if (e.name === 'AbortError') {
+        if (attempt < retries) { await new Promise(r => setTimeout(r, 600)); continue; }
+        throw new Error('Timeout — connexion lente');
+      }
+      if (attempt >= retries) throw e;
+      await new Promise(r => setTimeout(r, 400 * (attempt+1)));
+    }
+  }
+}
+
+async function searchSummoner() {
+  if (currentGame === 'tft') { await searchTft(); return; }
+  const raw = document.getElementById('summoner-input').value.trim();
+  if (!raw) return;
+  const region = document.getElementById('region-select').value;
+  const routing = RIOT_ROUTING[region];
+  document.getElementById('region-display').textContent = region.toUpperCase().replace(/\d/g,'');
+
+  setLoading(true, 'RÉCUPÉRATION DU COMPTE...');
+  showError('');
+  document.getElementById('main-content').style.display = 'none';
+
+  try {
+    let gameName, tagLine;
+    if (raw.includes('#')) { [gameName, tagLine] = raw.split('#'); } else { gameName = raw; tagLine = region.toUpperCase(); }
+
+    const account = await riotFetch(`https://${routing.account}.api.riotgames.com/riot/account/v1/accounts/by-riot-id/${encodeURIComponent(gameName)}/${encodeURIComponent(tagLine)}`);
+    
+    // Check cache (30min validity)
+    const cached = loadCache(account.puuid);
+    if (cached) {
+      setLoading(true, '⚡ CHARGEMENT INSTANTANÉ DEPUIS LE CACHE...');
+      await new Promise(r => setTimeout(r, 200));
+      renderAll(cached.account, cached.summoner, cached.soloQ, cached.matches, account.puuid);
+      setLoading(false);
+      showError('');
+      return;
+    }
+    setLoading(true, 'CHARGEMENT DU PROFIL...');
+    const summoner = await riotFetch(`https://${routing.platform}.api.riotgames.com/lol/summoner/v4/summoners/by-puuid/${account.puuid}`);
+    const ranked = await riotFetch(`https://${routing.platform}.api.riotgames.com/lol/league/v4/entries/by-puuid/${account.puuid}`);
+    const soloQ = ranked.find(r => r.queueType === 'RANKED_SOLO_5x5') || null;
+
+    setLoading(true, 'CHARGEMENT DE L\'HISTORIQUE (20 PARTIES)...');
+    const matchIds = await riotFetch(`https://${routing.match}.api.riotgames.com/lol/match/v5/matches/by-puuid/${account.puuid}/ids?queue=420&type=ranked&start=0&count=20`);
+
+    // Chargement en parallèle par batch de 5 — 4x plus rapide
+    const ids = matchIds.slice(0, 20);
+    const matchDetails = [];
+    const batchSize = 5;
+    for (let b = 0; b < ids.length; b += batchSize) {
+      const batch = ids.slice(b, b + batchSize);
+      setLoading(true, `CHARGEMENT PARTIES ${b+1}-${Math.min(b+batchSize, ids.length)}/${ids.length}...`);
+      const results = await Promise.all(
+        batch.map(id => riotFetch(`https://${routing.match}.api.riotgames.com/lol/match/v5/matches/${id}`))
+      );
+      matchDetails.push(...results);
+    }
+
+    saveCache(account.puuid, { account, summoner, soloQ, matches: matchDetails });
+    renderAll(account, summoner, soloQ, matchDetails, account.puuid);
+  } catch(e) {
+    showError('Erreur: ' + e.message + ' — Vérifie ton pseudo, ta région ou ta clé API.');
+  } finally {
+    setLoading(false);
+  }
+}
+
+// ── PERFORMANCE SCORE ────────────────────────────────────────────────
+function calcPerfScore(p) {
+  const kda = p.deaths === 0 ? (p.kills + p.assists) : (p.kills + p.assists) / p.deaths;
+  const cs10 = (p.totalMinionsKilled + p.neutralMinionsKilled) / (p.timePlayed / 60) * 10;
+  const dmgShare = p.totalDamageDealtToChampions / 1000;
+  const visionScore = p.visionScore || 0;
+  let score = 0;
+  if (kda >= 5) score += 30; else if (kda >= 3) score += 20; else if (kda >= 2) score += 12; else score += 5;
+  if (cs10 >= 80) score += 25; else if (cs10 >= 60) score += 18; else if (cs10 >= 40) score += 10; else score += 4;
+  if (dmgShare >= 20) score += 25; else if (dmgShare >= 12) score += 18; else if (dmgShare >= 7) score += 10; else score += 4;
+  if (visionScore >= 40) score += 10; else if (visionScore >= 25) score += 7; else score += 3;
+  if (p.win) score += 10;
+  const grade = score >= 90 ? 'S' : score >= 75 ? 'A' : score >= 58 ? 'B' : score >= 40 ? 'C' : 'D';
+  return { score, grade };
+}
+
+// ── PHASE ANALYSIS ───────────────────────────────────────────────────
+function analyzePhases(matches, puuid) {
+  const phases = { early:{cs:0,kills:0,deaths:0,gold:0,n:0}, mid:{dmg:0,kills:0,deaths:0,n:0}, late:{dmg:0,kills:0,deaths:0,n:0} };
+  const durationBuckets = {'<20min':{w:0,l:0},'20-30min':{w:0,l:0},'30-40min':{w:0,l:0},'>40min':{w:0,l:0}};
+  
+  matches.forEach(m => {
+    const p = m.info.participants.find(x => x.puuid === puuid);
+    if (!p) return;
+    const dur = m.info.gameDuration / 60;
+    
+    // Duration buckets for winrate
+    if (dur < 20) p.win ? durationBuckets['<20min'].w++ : durationBuckets['<20min'].l++;
+    else if (dur < 30) p.win ? durationBuckets['20-30min'].w++ : durationBuckets['20-30min'].l++;
+    else if (dur < 40) p.win ? durationBuckets['30-40min'].w++ : durationBuckets['30-40min'].l++;
+    else p.win ? durationBuckets['>40min'].w++ : durationBuckets['>40min'].l++;
+
+    // Early (CS at 10, first blood participation)
+    phases.early.cs += (p.totalMinionsKilled + p.neutralMinionsKilled);
+    phases.early.kills += p.kills;
+    phases.early.deaths += p.deaths;
+    phases.early.gold += p.goldEarned;
+    phases.early.n++;
+
+    // Mid (teamfight damage)
+    phases.mid.dmg += p.totalDamageDealtToChampions;
+    phases.mid.kills += p.kills;
+    phases.mid.deaths += p.deaths;
+    phases.mid.n++;
+
+    // Late (objective control proxy: turrets + drakes + baron)
+    const objScore = (p.turretKills||0)*3 + (p.dragonKills||0)*2 + (p.baronKills||0)*4;
+    phases.late.dmg += objScore;
+    phases.late.kills += p.kills;
+    phases.late.deaths += p.deaths;
+    phases.late.n++;
+  });
+
+  return { phases, durationBuckets };
+}
+
+// ── RENDER ALL ───────────────────────────────────────────────────────
+function renderAll(account, summoner, soloQ, matches, puuid) {
+  destroyCharts();
+  globalMatchData = { account, summoner, soloQ, matches, puuid };
+  allMatchDetails = matches;
+  currentPuuid = puuid;
+
+  const iconUrl = `https://ddragon.leagueoflegends.com/cdn/${VERSION}/img/profileicon/${summoner.profileIconId}.png`;
+  const winRate = soloQ ? Math.round(soloQ.wins/(soloQ.wins+soloQ.losses)*100) : null;
+
+  // Summoner card
+  const tierCls = soloQ ? 'rank-'+soloQ.tier.toLowerCase().slice(0,4) : '';
+  document.getElementById('summoner-card').innerHTML = `
+    <div class="summoner-avatar"><img src="${iconUrl}" onerror="this.parentNode.textContent='${account.gameName[0]}'" /></div>
+    <div class="summoner-info">
+      <h2>${account.gameName}<span style="color:var(--gold);opacity:.5">#${account.tagLine}</span></h2>
+      ${soloQ ? `<span class="rank-badge ${tierCls}">${soloQ.tier} ${soloQ.rank} — ${soloQ.leaguePoints} LP</span>` : '<span style="color:rgba(200,170,110,.4);font-size:.85rem">Non classé</span>'}
+    </div>
+    <div class="summoner-stats">
+      ${soloQ ? `
+        <div class="stat-block"><div class="val">${soloQ.wins+soloQ.losses}</div><div class="lbl">PARTIES</div></div>
+        <div class="stat-block"><div class="val" style="color:${winRate>50?'var(--green)':'var(--red)'}">${winRate}%</div><div class="lbl">WIN RATE</div></div>
+        <div class="stat-block"><div class="val">${soloQ.wins}</div><div class="lbl">VICTOIRES</div></div>
+        <div class="stat-block"><div class="val">${soloQ.losses}</div><div class="lbl">DÉFAITES</div></div>
+      ` : '<div class="stat-block"><div class="val">—</div><div class="lbl">UNRANKED</div></div>'}
+    </div>
+  `;
+
+  // ── Process matches
+  const champStats = {};
+  const matchOpponents = {};
+  const lpHistory = [];
+  let totalWins = 0, totalLosses = 0, totalKills = 0, totalDeaths = 0, totalAssists = 0;
+  let physDmg = 0, magicDmg = 0, trueDmg = 0;
+  const matchRows = [];
+  let streak = 0, lastResult = null;
+  const perfData = [];
+
+  matches.forEach(m => {
+    const p = m.info.participants.find(x => x.puuid === puuid);
+    if (!p) return;
+    const won = p.win;
+
+    // Streak
+    if (lastResult === null) { lastResult = won; streak = 1; }
+    else if (won === lastResult) streak++;
+    else { lastResult = won; streak = 1; }
+
+    won ? totalWins++ : totalLosses++;
+    totalKills += p.kills; totalDeaths += p.deaths; totalAssists += p.assists;
+    physDmg += p.physicalDamageDealtToChampions;
+    magicDmg += p.magicDamageDealtToChampions;
+    trueDmg += p.trueDamageDealtToChampions;
+    lpHistory.unshift(won ? (lpHistory[0]||0)+18 : (lpHistory[0]||0)-16);
+
+    const champ = p.championName;
+    if (!champStats[champ]) champStats[champ] = {wins:0,losses:0,kills:0,deaths:0,assists:0,games:0,cs:0,dmg:0,vision:0};
+    champStats[champ].games++;
+    champStats[champ].kills += p.kills; champStats[champ].deaths += p.deaths; champStats[champ].assists += p.assists;
+    champStats[champ].cs += (p.totalMinionsKilled + p.neutralMinionsKilled);
+    champStats[champ].dmg += p.totalDamageDealtToChampions;
+    champStats[champ].vision += (p.visionScore || 0);
+    won ? champStats[champ].wins++ : champStats[champ].losses++;
+
+    const enemyRole = m.info.participants.find(x => x.teamId !== p.teamId && x.individualPosition === p.individualPosition);
+    if (enemyRole) {
+      const opp = enemyRole.championName;
+      if (!matchOpponents[opp]) matchOpponents[opp] = {wins:0,losses:0};
+      won ? matchOpponents[opp].wins++ : matchOpponents[opp].losses++;
+    }
+
+    const dur = `${Math.floor(m.info.gameDuration/60)}:${String(m.info.gameDuration%60).padStart(2,'0')}`;
+    const kda = p.deaths===0 ? '∞' : ((p.kills+p.assists)/p.deaths).toFixed(2);
+    const kdaClass = p.deaths===0||parseFloat(kda)>4 ? 'kda-great' : parseFloat(kda)>2.5 ? 'kda-good' : 'kda-avg';
+    const iconC = `https://ddragon.leagueoflegends.com/cdn/${VERSION}/img/champion/${champ}.png`;
+    const perf = calcPerfScore(p);
+    perfData.push({ p, won, champ, dur, kda, perf, matchId: m.metadata?.matchId });
+
+    const items = [p.item0,p.item1,p.item2,p.item3,p.item4,p.item5].filter(Boolean);
+    const itemsHtml = items.slice(0,4).map(id => 
+      `<div class="item-icon"><img src="https://ddragon.leagueoflegends.com/cdn/${VERSION}/img/item/${id}.png" onerror="this.style.display='none'" /></div>`
+    ).join('');
+    const matchIdx = matches.indexOf(m);
+    matchRows.push(`
+      <div class="match-item ${won?'win':'loss'}" onclick="openMatchDetail(${matchIdx})">
+        <div class="match-result-bar"></div>
+        <div class="champ-icon"><img src="${iconC}" onerror="this.parentNode.textContent='${champ.slice(0,3)}'" /></div>
+        <div class="perf-score score-${perf.grade.toLowerCase()}">${perf.grade}</div>
+        <div>
+          <div class="match-champ">${champ}</div>
+          <div class="match-vs">${p.individualPosition||'LANE'} ${enemyRole?'— vs '+enemyRole.championName:''}</div>
+        </div>
+        <div class="match-kda ${kdaClass}">${p.kills}/${p.deaths}/${p.assists}<br><span style="font-size:.7rem;opacity:.7">KDA ${kda}</span></div>
+        <div class="match-cs">${p.totalMinionsKilled+p.neutralMinionsKilled} CS</div>
+        <div style="display:flex;gap:3px;align-items:center">${itemsHtml}</div>
+        <div class="match-time">${dur}</div>
+      </div>
+    `);
+  });
+
+  // Streak banner
+  const streakEl = document.getElementById('streak-container');
+  if (streak >= 3) {
+    const cls = lastResult ? 'streak-win' : 'streak-loss';
+    const emoji = lastResult ? '🔥' : '💀';
+    streakEl.innerHTML = `<div class="streak-banner ${cls}">${emoji} STREAK DE ${streak} ${lastResult?'VICTOIRES':'DÉFAITES'} CONSÉCUTIVES</div>`;
+  } else {
+    streakEl.innerHTML = '';
+  }
+
+  document.getElementById('match-list').innerHTML = matchRows.join('');
+
+  // ── Highlights
+  const sorted = [...perfData].sort((a,b) => b.perf.score - a.perf.score);
+  const bestKDA = [...perfData].sort((a,b) => (parseFloat(b.kda)||0)-(parseFloat(a.kda)||0))[0];
+  const bestDmg = [...perfData].sort((a,b) => b.p.totalDamageDealtToChampions - a.p.totalDamageDealtToChampions)[0];
+  const bestCS = [...perfData].sort((a,b) => (b.p.totalMinionsKilled+b.p.neutralMinionsKilled)-(a.p.totalMinionsKilled+a.p.neutralMinionsKilled))[0];
+
+  document.getElementById('highlight-grid').innerHTML = `
+    <div class="highlight-card highlight-mvp">
+      <div class="highlight-label">🏆 MEILLEURE PERF</div>
+      <div class="highlight-val">${sorted[0]?.champ||'—'}</div>
+      <div class="highlight-sub">Score ${sorted[0]?.perf.score||0}/100 — Grade ${sorted[0]?.perf.grade||'—'}</div>
+    </div>
+    <div class="highlight-card highlight-carry">
+      <div class="highlight-label">⚔ MEILLEUR KDA</div>
+      <div class="highlight-val">${bestKDA?.kda||'—'}</div>
+      <div class="highlight-sub">${bestKDA?.champ||'—'} — ${bestKDA?.p.kills}/${bestKDA?.p.deaths}/${bestKDA?.p.assists}</div>
+    </div>
+    <div class="highlight-card highlight-kda">
+      <div class="highlight-label">💥 MAX DÉGÂTS</div>
+      <div class="highlight-val">${bestDmg ? (bestDmg.p.totalDamageDealtToChampions/1000).toFixed(1)+'k' : '—'}</div>
+      <div class="highlight-sub">${bestDmg?.champ||'—'} — ${bestDmg?.dur||'—'}</div>
+    </div>
+    <div class="highlight-card highlight-mvp">
+      <div class="highlight-label">🌾 MEILLEUR CS</div>
+      <div class="highlight-val">${bestCS ? bestCS.p.totalMinionsKilled+bestCS.p.neutralMinionsKilled : '—'}</div>
+      <div class="highlight-sub">${bestCS?.champ||'—'} — ${bestCS?.dur||'—'}</div>
+    </div>
+    <div class="highlight-card highlight-carry">
+      <div class="highlight-label">🎯 WINRATE (20 GAMES)</div>
+      <div class="highlight-val" style="color:${totalWins/(totalWins+totalLosses)>.5?'var(--green)':'var(--red)'}">${Math.round(totalWins/(totalWins+totalLosses)*100)}%</div>
+      <div class="highlight-sub">${totalWins}V / ${totalLosses}D</div>
+    </div>
+    <div class="highlight-card highlight-kda">
+      <div class="highlight-label">📊 KDA MOYEN</div>
+      <div class="highlight-val">${totalDeaths===0?'∞':((totalKills+totalAssists)/totalDeaths).toFixed(2)}</div>
+      <div class="highlight-sub">${(totalKills/perfData.length).toFixed(1)} / ${(totalDeaths/perfData.length).toFixed(1)} / ${(totalAssists/perfData.length).toFixed(1)}</div>
+    </div>
+  `;
+
+  // Best / Worst games
+  document.getElementById('best-games').innerHTML = sorted.slice(0,3).map(d => gameRow(d, VERSION)).join('');
+  document.getElementById('worst-games').innerHTML = [...sorted].reverse().slice(0,3).map(d => gameRow(d, VERSION)).join('');
+
+  // ── Charts
+  const wr1 = Math.round(totalWins/(totalWins+totalLosses)*100)||50;
+  charts.winrate = new Chart(document.getElementById('chartWinrate'), {
+    type:'doughnut',
+    data:{labels:['Victoires','Défaites'],datasets:[{data:[totalWins,totalLosses],backgroundColor:['rgba(75,181,94,.8)','rgba(195,75,75,.8)'],borderColor:['#4BB55E','#C34B4B'],borderWidth:2}]},
+    options:{responsive:true,cutout:'70%',plugins:{legend:{labels:{color:'#C8AA6E',font:{family:'Rajdhani',size:13}}}}},
+    plugins:[{id:'center',beforeDraw:chart=>{const{width,height,ctx}=chart;ctx.restore();ctx.font='bold 2rem Bebas Neue';ctx.fillStyle=wr1>50?'#4BB55E':'#C34B4B';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(wr1+'%',width/2,height/2);ctx.save();}}]
+  });
+
+  charts.lp = new Chart(document.getElementById('chartLP'), {
+    type:'line',
+    data:{labels:lpHistory.map((_,i)=>`G${i+1}`),datasets:[{label:'LP estimé',data:lpHistory,borderColor:'#C8AA6E',backgroundColor:'rgba(200,170,110,.08)',fill:true,tension:.4,pointRadius:3,pointBackgroundColor:'#C8AA6E'}]},
+    options:{responsive:true,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'rgba(200,170,110,.4)',font:{size:10}},grid:{color:'rgba(200,170,110,.05)'}},y:{ticks:{color:'rgba(200,170,110,.4)',font:{size:10}},grid:{color:'rgba(200,170,110,.05)'}}}}
+  });
+
+  const sortedChamps = Object.entries(champStats).sort((a,b)=>b[1].games-a[1].games).slice(0,6);
+  document.getElementById('champion-list').innerHTML = sortedChamps.map(([c,s]) => {
+    const wr=Math.round(s.wins/s.games*100),kda=s.deaths===0?'∞':((s.kills+s.assists)/s.deaths).toFixed(2),cls=wr>=55?'wr-high':wr>=45?'wr-mid':'wr-low';
+    const ic=`https://ddragon.leagueoflegends.com/cdn/${VERSION}/img/champion/${c}.png`;
+    return `<div class="champ-row"><div class="champ-row-icon"><img src="${ic}" onerror="this.parentNode.textContent='${c.slice(0,3)}'" /></div><div><div style="font-weight:700;font-size:.85rem">${c}</div><div class="wr-bar-wrap"><div class="wr-bar" style="width:${wr}%"></div></div></div><div class="win-rate-val ${cls}">${wr}%</div><div style="color:rgba(200,170,110,.5);font-size:.75rem;font-family:'Share Tech Mono',monospace">${s.games}G</div><div style="font-size:.75rem;font-family:'Share Tech Mono',monospace;color:var(--gold)">${kda} KDA</div></div>`;
+  }).join('');
+
+  const sortedMatchups = Object.entries(matchOpponents).filter(([,s])=>s.wins+s.losses>=1).sort((a,b)=>(a[1].wins/(a[1].wins+a[1].losses))-(b[1].wins/(b[1].wins+b[1].losses))).slice(0,8);
+  document.getElementById('matchup-list').innerHTML = sortedMatchups.map(([opp,s]) => {
+    const total=s.wins+s.losses,wr=Math.round(s.wins/total*100);
+    const ic=`https://ddragon.leagueoflegends.com/cdn/${VERSION}/img/champion/${opp}.png`;
+    return `<div class="matchup-row"><div style="display:flex;align-items:center;gap:10px"><div class="champ-row-icon"><img src="${ic}" onerror="this.parentNode.textContent='${opp.slice(0,3)}'" /></div><span style="font-weight:600">${opp}</span></div><span style="font-family:'Share Tech Mono',monospace;font-size:.78rem;color:rgba(200,170,110,.5)">${total}G</span><span class="win-rate-val ${wr>=50?'wr-high':'wr-low'}" style="font-size:.85rem">${wr}%</span><span class="tag ${wr>=50?'tag-win':'tag-loss'}">${wr>=50?'FAVORI':'DIFFICILE'}</span></div>`;
+  }).join('')||'<div style="color:rgba(200,170,110,.4);font-size:.8rem;padding:10px 0">Pas assez de données matchup</div>';
+
+  charts.kda = new Chart(document.getElementById('chartKDA'), {
+    type:'bar',
+    data:{labels:sortedChamps.map(([c])=>c),datasets:[
+      {label:'Kills',data:sortedChamps.map(([,s])=>(s.kills/s.games).toFixed(1)),backgroundColor:'rgba(75,181,94,.7)'},
+      {label:'Deaths',data:sortedChamps.map(([,s])=>(s.deaths/s.games).toFixed(1)),backgroundColor:'rgba(195,75,75,.7)'},
+      {label:'Assists',data:sortedChamps.map(([,s])=>(s.assists/s.games).toFixed(1)),backgroundColor:'rgba(200,170,110,.6)'},
+    ]},
+    options:{responsive:true,plugins:{legend:{labels:{color:'#C8AA6E',font:{family:'Rajdhani',size:12}}}},scales:{x:{ticks:{color:'rgba(200,170,110,.6)'},grid:{color:'rgba(200,170,110,.05)'}},y:{ticks:{color:'rgba(200,170,110,.4)'},grid:{color:'rgba(200,170,110,.05)'}}}}
+  });
+
+  const totalDmg=physDmg+magicDmg+trueDmg;
+  charts.dmg = new Chart(document.getElementById('chartDmg'), {
+    type:'polarArea',
+    data:{labels:['Physique','Magique','Vrai'],datasets:[{data:[Math.round(physDmg/totalDmg*100),Math.round(magicDmg/totalDmg*100),Math.round(trueDmg/totalDmg*100)],backgroundColor:['rgba(195,75,75,.6)','rgba(100,130,255,.6)','rgba(200,170,110,.6)'],borderColor:['#C34B4B','#6482FF','#C8AA6E'],borderWidth:1}]},
+    options:{responsive:true,plugins:{legend:{labels:{color:'#C8AA6E',font:{family:'Rajdhani',size:12}}}},scales:{r:{ticks:{display:false},grid:{color:'rgba(200,170,110,.08)'}}}}
+  });
+
+  // ── PHASES TAB
+  const {phases, durationBuckets} = analyzePhases(matches, puuid);
+  const n = perfData.length || 1;
+
+  const avgCS10 = (phases.early.cs / n / (matches.reduce((a,m)=>{const p=m.info.participants.find(x=>x.puuid===puuid);return a+(p?m.info.gameDuration/60:0);},0)/n||30)) * 10;
+  const earlyScore = Math.min(100, Math.round(avgCS10 / 100 * 100));
+  const kdaScore = totalDeaths===0 ? 95 : Math.min(100, Math.round(((totalKills+totalAssists)/totalDeaths)/6*100));
+  const lateScore = Math.min(100, Math.round(phases.late.dmg / n / 10 * 100));
+
+  // Radar data
+  const avgVision = Object.values(champStats).reduce((a,c)=>a+c.vision,0) / n;
+  const avgDmgK = (physDmg+magicDmg+trueDmg)/1000/n;
+  const radarData = [
+    Math.min(100,earlyScore),
+    Math.min(100,kdaScore),
+    Math.min(100,Math.round(avgDmgK/30*100)),
+    Math.min(100,Math.round(avgVision/50*100)),
+    Math.min(100,lateScore),
+    wr1,
+  ];
+
+  charts.radar = new Chart(document.getElementById('chartRadar'), {
+    type:'radar',
+    data:{labels:['Early Game','KDA','Dégâts','Vision','Objectifs','Winrate'],datasets:[{label:'Toi',data:radarData,borderColor:'rgba(200,170,110,.8)',backgroundColor:'rgba(200,170,110,.1)',pointBackgroundColor:'#C8AA6E',pointRadius:4}]},
+    options:{responsive:true,scales:{r:{min:0,max:100,ticks:{display:false},grid:{color:'rgba(200,170,110,.1)'},pointLabels:{color:'rgba(200,170,110,.7)',font:{family:'Rajdhani',size:12}}}},plugins:{legend:{display:false}}}
+  });
+
+  // Phase bars
+  const phases3 = [
+    {key:'early',label:'EARLY GAME (CS & Kills 0-15)',val:earlyScore,cls:'phase-early'},
+    {key:'mid',label:'MID GAME (KDA & Dégâts)',val:kdaScore,cls:'phase-mid'},
+    {key:'late',label:'LATE GAME (Objectifs)',val:lateScore,cls:'phase-late'},
+  ];
+  const bestPhase = phases3.reduce((a,b)=>b.val>a.val?b:a).key;
+  const worstPhase = phases3.reduce((a,b)=>b.val<a.val?b:a).key;
+
+  document.getElementById('phase-bars').innerHTML = phases3.map(ph => `
+    <div class="phase-row ${ph.cls}">
+      <div class="phase-label">
+        <span>${ph.label}</span>
+        <span style="color:${ph.val>65?'var(--green)':ph.val>45?'var(--gold)':'var(--red)'}">${ph.val}/100</span>
+      </div>
+      <div class="phase-bar-track"><div class="phase-bar-fill" style="width:${ph.val}%"></div></div>
+      ${ph.key===bestPhase?'<span class="phase-badge phase-best">✓ POINT FORT</span>':''}
+      ${ph.key===worstPhase?'<span class="phase-badge phase-worst">⚠ À AMÉLIORER</span>':''}
+    </div>
+  `).join('');
+
+  // Phase detail stats
+  const csPerMin = (phases.early.cs/n/(matches.reduce((a,m)=>{const p=m.info.participants.find(x=>x.puuid===puuid);return a+(p?m.info.gameDuration/60:0);},0)/n||30)).toFixed(1);
+  document.getElementById('early-stats').innerHTML = statBlock([
+    {label:'CS/min moyen',val:csPerMin,good:csPerMin>7,tip:csPerMin>7?'Bon farming !':'Objectif: 7+ CS/min'},
+    {label:'Kills moyen',val:(phases.early.kills/n).toFixed(1),good:phases.early.kills/n>2},
+    {label:'Deaths moyen',val:(phases.early.deaths/n).toFixed(1),good:phases.early.deaths/n<3,invert:true},
+    {label:'Gold/partie',val:Math.round(phases.early.gold/n/1000)+'k',good:phases.early.gold/n>10000},
+  ]);
+
+  const avgKDA = totalDeaths===0?'∞':((totalKills+totalAssists)/totalDeaths).toFixed(2);
+  document.getElementById('mid-stats').innerHTML = statBlock([
+    {label:'KDA moyen',val:avgKDA,good:parseFloat(avgKDA)>2.5,tip:parseFloat(avgKDA)>2.5?'Bon KDA !':'Objectif: 2.5+ KDA'},
+    {label:'Dégâts moy.',val:(avgDmgK).toFixed(1)+'k',good:avgDmgK>15},
+    {label:'Kills moy.',val:(totalKills/n).toFixed(1),good:totalKills/n>5},
+    {label:'Assists moy.',val:(totalAssists/n).toFixed(1),good:totalAssists/n>5},
+  ]);
+
+  const objPer = (phases.late.dmg/n).toFixed(1);
+  document.getElementById('late-stats').innerHTML = statBlock([
+    {label:'Score objectifs',val:objPer,good:objPer>5,tip:objPer>5?'Bon contrôle objectifs':'Focus Drake/Baron/Tour'},
+    {label:'Vision score',val:(avgVision).toFixed(0),good:avgVision>25},
+    {label:'WR parties longues',val:durationBuckets['>40min'].w+durationBuckets['>40min'].l>0?Math.round(durationBuckets['>40min'].w/(durationBuckets['>40min'].w+durationBuckets['>40min'].l)*100)+'%':'N/A',good:true},
+    {label:'WR parties courtes',val:durationBuckets['<20min'].w+durationBuckets['<20min'].l>0?Math.round(durationBuckets['<20min'].w/(durationBuckets['<20min'].w+durationBuckets['<20min'].l)*100)+'%':'N/A',good:true},
+  ]);
+
+  // Duration WR chart
+  const dbLabels = Object.keys(durationBuckets);
+  const dbWR = dbLabels.map(k => {
+    const {w,l} = durationBuckets[k];
+    return w+l>0 ? Math.round(w/(w+l)*100) : 0;
+  });
+  charts.duration = new Chart(document.getElementById('chartDuration'), {
+    type:'bar',
+    data:{labels:dbLabels,datasets:[{label:'Winrate (%)',data:dbWR,backgroundColor:dbWR.map(v=>v>=50?'rgba(75,181,94,.7)':'rgba(195,75,75,.7)'),borderColor:dbWR.map(v=>v>=50?'#4BB55E':'#C34B4B'),borderWidth:1}]},
+    options:{responsive:true,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${ctx.raw}% WR`}}},scales:{x:{ticks:{color:'rgba(200,170,110,.6)'},grid:{color:'rgba(200,170,110,.05)'}},y:{min:0,max:100,ticks:{color:'rgba(200,170,110,.4)',callback:v=>v+'%'},grid:{color:'rgba(200,170,110,.05)'}}}}
+  });
+
+  // ── Item Analysis
+  const itemEl = document.getElementById('item-analysis');
+  if (itemEl) {
+    const champItemMap = {};
+    matches.forEach(m => {
+      const p = m.info.participants.find(x => x.puuid === puuid);
+      if (!p) return;
+      const c = p.championName;
+      if (!champItemMap[c]) champItemMap[c] = { games:[], wins:0, losses:0 };
+      p.win ? champItemMap[c].wins++ : champItemMap[c].losses++;
+      const build = [p.item0,p.item1,p.item2,p.item3,p.item4,p.item5].filter(Boolean);
+      champItemMap[c].games.push({ items: build, won: p.win, kda: p.deaths===0?99:((p.kills+p.assists)/p.deaths), dmg: p.totalDamageDealtToChampions });
+    });
+
+    const topChamps = Object.entries(champItemMap).sort((a,b)=>b[1].games.length-a[1].games.length).slice(0,4);
+    
+    if (topChamps.length === 0) {
+      itemEl.innerHTML = '<div style="color:rgba(200,155,60,.4);font-size:.8rem;padding:10px;font-family:Share Tech Mono,monospace">Pas assez de données</div>';
+    } else {
+      itemEl.innerHTML = topChamps.map(([champ, data]) => {
+        const wr = Math.round(data.wins/(data.wins+data.losses)*100);
+        const wrCls = wr>=55?'var(--green)':wr>=45?'var(--gold)':'var(--red)';
+        // Most common items across all games
+        const itemFreq = {};
+        data.games.forEach(g => g.items.forEach(id => { itemFreq[id]=(itemFreq[id]||0)+1; }));
+        const topItems = Object.entries(itemFreq).sort((a,b)=>b[1]-a[1]).slice(0,6);
+        const champIcon = 'https://ddragon.leagueoflegends.com/cdn/'+VERSION+'/img/champion/'+champ+'.png';
+        const avgDmg = Math.round(data.games.reduce((a,g)=>a+g.dmg,0)/data.games.length/1000);
+        const avgKDA = (data.games.reduce((a,g)=>a+(g.kda>10?10:g.kda),0)/data.games.length).toFixed(1);
+        
+        // Itemization tip based on winrate and games
+        let tip = '';
+        if (wr < 45) tip = '⚠ WR faible — revoir le build ou le matchup';
+        else if (wr >= 60) tip = '✓ Bon build — continue comme ça';
+        else tip = '→ Build stable, focus sur la décision de build situationnel';
+
+        return '<div class="item-analysis-row">'+
+          '<div class="item-analysis-champ"><img src="'+champIcon+'" onerror="this.style.opacity=0.3" /></div>'+
+          '<div style="flex:1">'+
+            '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">'+
+              '<span style="font-weight:700;font-size:.9rem">'+champ+'</span>'+
+              '<span style="font-family:Share Tech Mono,monospace;font-size:.72rem;color:'+wrCls+'">'+wr+'% WR</span>'+
+              '<span style="font-family:Share Tech Mono,monospace;font-size:.7rem;color:rgba(200,155,60,.4)">'+data.games.length+'G · '+avgDmg+'k DMG · '+avgKDA+' KDA</span>'+
+            '</div>'+
+            '<div style="display:flex;gap:4px;margin-bottom:6px;flex-wrap:wrap">'+
+              topItems.map(([id, freq]) => 
+                '<div style="display:flex;flex-direction:column;align-items:center;gap:1px">'+
+                  '<div class="item-icon"><img src="https://ddragon.leagueoflegends.com/cdn/'+VERSION+'/img/item/'+id+'.png" onerror="this.parentNode.style.opacity=.2" /></div>'+
+                  '<span style="font-size:.55rem;color:rgba(200,155,60,.4);font-family:Share Tech Mono,monospace">'+freq+'x</span>'+
+                '</div>'
+              ).join('')+
+            '</div>'+
+            '<div class="item-tip">'+tip+'</div>'+
+          '</div>'+
+        '</div>';
+      }).join('');
+    }
+  }
+
+  document.getElementById('main-content').style.display = 'block';
+  // Animate stat numbers
+  setTimeout(() => {
+    document.querySelectorAll('.stat-block .val').forEach(el => {
+      const txt = el.textContent;
+      const num = parseInt(txt.replace('%',''));
+      if (!isNaN(num) && num > 0) animateNumber(el, num, 800);
+    });
+  }, 300);
+  // Stagger panel animations
+  setTimeout(() => {
+    document.querySelectorAll('.panel').forEach((el, i) => {
+      el.style.animationDelay = (i * 0.05) + 's';
+    });
+  }, 50);
+}
+
+function statBlock(items) {
+  return items.map(item => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(200,170,110,.07)">
+      <span style="font-size:.82rem;color:rgba(200,170,110,.6)">${item.label}</span>
+      <span style="font-family:'Share Tech Mono',monospace;font-size:.85rem;color:${item.invert?(item.good?'var(--green)':'var(--red)'):(item.good?'var(--green)':'var(--red)')}">${item.val}</span>
+    </div>
+    ${item.tip ? `<div style="font-size:.7rem;color:rgba(200,170,110,.35);font-family:'Share Tech Mono',monospace;padding-bottom:4px">${item.tip}</div>` : ''}
+  `).join('');
+}
+
+function gameRow(d, v) {
+  const ic = `https://ddragon.leagueoflegends.com/cdn/${v}/img/champion/${d.champ}.png`;
+  return `
+    <div class="match-item ${d.won?'win':'loss'}">
+      <div class="match-result-bar"></div>
+      <div class="champ-icon"><img src="${ic}" onerror="this.parentNode.textContent='${d.champ.slice(0,3)}'" /></div>
+      <div class="perf-score score-${d.perf.grade.toLowerCase()}">${d.perf.grade}</div>
+      <div><div class="match-champ">${d.champ}</div><div class="match-vs">Score: ${d.perf.score}/100</div></div>
+      <div class="match-kda kda-good">${d.p.kills}/${d.p.deaths}/${d.p.assists}</div>
+      <div class="match-cs">${d.p.totalMinionsKilled+d.p.neutralMinionsKilled} CS</div>
+      <div class="match-dmg">${(d.p.totalDamageDealtToChampions/1000).toFixed(1)}k</div>
+      <div class="match-time">${d.dur}</div>
+    </div>`;
+}
+
+// ── AI ANALYSIS (GROQ) ──────────────────────────────────────────────
+function resetGroqKey() {
+  localStorage.removeItem('lol_scout_groq_key');
+  alert('Clé Groq supprimée. Clique sur Générer pour en entrer une nouvelle.');
+}
+
+async function generateAIAnalysis() {
+  if (!globalMatchData) return;
+  const btn = document.getElementById('ai-btn');
+  btn.disabled = true;
+  btn.textContent = '⏳ GÉNÉRATION...';
+
+  document.getElementById('ai-output').innerHTML = `
+    <div class="ai-generating" id="ai-thinking-box">
+      <div style="width:100%;max-width:480px">
+        <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px">
+          <div style="position:relative;width:44px;height:44px;flex-shrink:0">
+            <div style="position:absolute;inset:0;border-radius:50%;border:2px solid rgba(0,200,255,.15);animation:spin 3s linear infinite"></div>
+            <div style="position:absolute;inset:4px;border-radius:50%;border:2px solid transparent;border-top-color:var(--blue-accent);animation:spin 1s linear infinite"></div>
+            <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:1.1rem">🤖</div>
+          </div>
+          <div>
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:.95rem;letter-spacing:3px;color:var(--blue-accent)">LLAMA 3.3 ANALYSE</div>
+            <div style="font-family:'Share Tech Mono',monospace;font-size:.68rem;color:rgba(200,155,60,.6);margin-top:2px" id="ai-step-label">Initialisation...</div>
+          </div>
+        </div>
+        <div style="background:rgba(0,0,0,.3);border:1px solid rgba(0,200,255,.1);padding:10px 14px;font-family:'Share Tech Mono',monospace;font-size:.68rem;color:rgba(200,155,60,.5);line-height:1.8;min-height:56px" id="ai-log-box"></div>
+        <div style="margin-top:8px;height:2px;background:rgba(255,255,255,.05);border-radius:2px;overflow:hidden">
+          <div id="ai-prog" style="height:100%;width:0%;background:linear-gradient(90deg,var(--blue-accent),var(--purple));transition:width .5s ease"></div>
+        </div>
+      </div>
+    </div>`;
+
+  const _steps = ['Chargement historique...','Calcul KDA...','Analyse farming...','Évaluation phases...','Détection patterns...','Génération rapport...','Finalisation...'];
+  let _si = 0;
+  window._aiInt = setInterval(() => {
+    if (_si >= _steps.length) { clearInterval(window._aiInt); return; }
+    const el = document.getElementById('ai-log-box');
+    const lb = document.getElementById('ai-step-label');
+    const pb = document.getElementById('ai-prog');
+    if (el) el.innerHTML += (_si?'<br>':'') + '▸ ' + _steps[_si];
+    if (lb) lb.textContent = _steps[_si];
+    if (pb) pb.style.width = ((_si+1)/_steps.length*80)+'%';
+    _si++;
+  }, 500);
+
+  const { account, soloQ, matches, puuid } = globalMatchData;
+  const champMap = {};
+  let totalK=0,totalD=0,totalA=0,totalW=0,totalL=0;
+  const matchSummaries = [];
+
+  matches.forEach(m => {
+    const p = m.info.participants.find(x=>x.puuid===puuid);
+    if (!p) return;
+    const won = p.win;
+    won?totalW++:totalL++;
+    totalK+=p.kills;totalD+=p.deaths;totalA+=p.assists;
+    const c=p.championName;
+    if(!champMap[c]) champMap[c]={w:0,l:0,k:0,d:0,a:0,cs:0,dmg:0,vis:0,n:0};
+    champMap[c].n++;champMap[c].k+=p.kills;champMap[c].d+=p.deaths;champMap[c].a+=p.assists;
+    champMap[c].cs+=(p.totalMinionsKilled+p.neutralMinionsKilled);
+    champMap[c].dmg+=p.totalDamageDealtToChampions;
+    champMap[c].vis+=(p.visionScore||0);
+    won?champMap[c].w++:champMap[c].l++;
+    matchSummaries.push(c+' '+(won?'WIN':'LOSS')+' '+p.kills+'/'+p.deaths+'/'+p.assists+' CS:'+(p.totalMinionsKilled+p.neutralMinionsKilled)+' DMG:'+Math.round(p.totalDamageDealtToChampions/1000)+'k VIS:'+(p.visionScore||0)+' ROLE:'+(p.individualPosition||'?')+' DUR:'+Math.floor(m.info.gameDuration/60)+'min');
+  });
+
+  const champSummary = Object.entries(champMap).sort((a,b)=>b[1].n-a[1].n).slice(0,5).map(([c,s])=>
+    c+': '+s.n+' games '+Math.round(s.w/s.n*100)+'%WR KDA:'+(s.d===0?'inf':((s.k+s.a)/s.d).toFixed(2))+' CS/g:'+Math.round(s.cs/s.n)+' DMG/g:'+Math.round(s.dmg/s.n/1000)+'k VIS/g:'+Math.round(s.vis/s.n)
+  ).join('\n');
+
+  const prompt = 'Tu es un coach LoL expert. Analyse les performances de ce joueur en FRANÇAIS.\n\nPROFIL: '+account.gameName+'#'+account.tagLine+'\nRANK: '+(soloQ?soloQ.tier+' '+soloQ.rank+' '+soloQ.leaguePoints+'LP':'Unranked')+'\n\nDONNEES 20 DERNIERES PARTIES:\nWinrate: '+Math.round(totalW/(totalW+totalL)*100)+'% ('+totalW+'V/'+totalL+'D)\nKDA Global: '+((totalD===0)?'inf':((totalK+totalA)/totalD).toFixed(2))+'\n\nTOP CHAMPIONS:\n'+champSummary+'\n\nDETAIL PARTIES:\n'+matchSummaries.join('\n')+'\n\nDonne une analyse structurée avec:\n1. RESUME GLOBAL (2-3 phrases)\n2. EARLY GAME (CS, kills, lane)\n3. MID GAME (teamfights, degats)\n4. LATE GAME (objectifs, decisions)\n5. POINTS FORTS (3-4 points)\n6. POINTS A AMELIORER (3-4 points avec conseils concrets)\n7. ANALYSE PAR CHAMPION (chaque champ joue 3+ fois)\n8. CONSEIL PRIORITAIRE (1 seule chose urgente)\n\nSois direct et precis. Pas emojis excessifs.';
+
+  let groqKey = localStorage.getItem('lol_scout_groq_key') || '';
+  if (!groqKey) {
+    groqKey = window.prompt('Entre ta clé API Groq (gsk_...)\nGratuit sur console.groq.com');
+    if (!groqKey) { 
+      clearInterval(window._aiInt);
+      btn.disabled=false; 
+      btn.textContent='⚡ GENERER ANALYSE'; 
+      document.getElementById('ai-output').innerHTML='<div style="color:rgba(200,155,60,.4);padding:40px;text-align:center;font-family:Share Tech Mono,monospace">Clé Groq requise — gratuit sur console.groq.com</div>';
+      return; 
+    }
+    localStorage.setItem('lol_scout_groq_key', groqKey);
+  }
+
+  try {
+    const response = await fetch(PROXY_URL + '/groq', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        apiKey: groqKey,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    const data = await response.json();
+    if (data.error) throw new Error(typeof data.error === 'object' ? JSON.stringify(data.error) : data.error);
+    const text = data.choices?.[0]?.message?.content || '';
+    if (!text) throw new Error('Réponse vide de Groq');
+    
+    if (window._aiInt) clearInterval(window._aiInt);
+    const pb = document.getElementById('ai-prog');
+    if (pb) pb.style.width = '100%';
+    await new Promise(r => setTimeout(r, 400));
+    renderAIOutput(text);
+  } catch(e) {
+    if (window._aiInt) clearInterval(window._aiInt);
+    if (e.message.includes('401') || e.message.includes('invalid_api_key')) {
+      localStorage.removeItem('lol_scout_groq_key');
+    }
+    document.getElementById('ai-output').innerHTML = '<div style="color:var(--red);font-family:Share Tech Mono,monospace;font-size:.85rem;padding:20px">Erreur: '+e.message+'<br><br>Clique à nouveau pour réessayer.</div>';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🔄 REGÉNÉRER';
+  }
+}
+
+function renderAIOutput(text, containerId='ai-output') {
+  // Parse markdown-ish text into styled HTML
+  const lines = text.split('\n');
+  let html = '';
+  let inList = false;
+
+  for (const line of lines) {
+    const l = line.trim();
+    if (!l) { if(inList){html+='</div>';inList=false;} continue; }
+
+    if (l.startsWith('**') && l.endsWith('**') && l.length > 4) {
+      if(inList){html+='</div>';inList=false;}
+      html += `<div class="ai-section"><div class="ai-section-title">${l.replace(/\*\*/g,'')}</div>`;
+      inList = true;
+    } else if (l.startsWith('- ') || l.startsWith('• ')) {
+      const content = l.replace(/^[-•] /,'');
+      // Color based on keywords
+      const isPositive = /bon|fort|excel|bien|✓|positif/i.test(content);
+      const isNegative = /améliorer|faible|manque|insuffisant|trop|problème/i.test(content);
+      const tagCls = isPositive ? 'ai-tag-green' : isNegative ? 'ai-tag-red' : 'ai-tag-blue';
+      html += `<span class="ai-tag ${tagCls}">${content}</span>`;
+    } else if (l.match(/^\d+\./)) {
+      if(inList){html+='</div>';inList=false;}
+      const sectionText = l.replace(/^\d+\.\s*/,'');
+      html += `<div class="ai-section"><div class="ai-section-title">${sectionText}</div>`;
+      inList = true;
+    } else {
+      // bold inline
+      const formatted = l.replace(/\*\*(.+?)\*\*/g,'<strong style="color:var(--gold-light)">$1</strong>');
+      html += `<div class="ai-text" style="margin-bottom:8px">${formatted}</div>`;
+    }
+  }
+  if(inList) html += '</div>';
+
+  document.getElementById(containerId).innerHTML = `<div style="padding:4px">${html}</div>`;
+}
+
+// ── DEMO ──────────────────────────────────────────────────────────────
+function loadDemo() {
+  document.getElementById('api-modal').style.display = 'none';
+  setLoading(false);
+
+  const fakeMatches = generateFakeMatches();
+  const fakeAccount = {gameName:'DemoPlayer', tagLine:'VN', puuid:'demo'};
+  const fakeSummoner = {profileIconId:1, id:'demo', summonerLevel:150};
+  const fakeSoloQ = {tier:'PLATINUM', rank:'II', leaguePoints:67, wins:42, losses:36, queueType:'RANKED_SOLO_5x5'};
+
+  globalMatchData = {account:fakeAccount, summoner:fakeSummoner, soloQ:fakeSoloQ, matches:fakeMatches, puuid:'demo'};
+  renderAll(fakeAccount, fakeSummoner, fakeSoloQ, fakeMatches, 'demo');
+}
+
+function generateFakeMatches() {
+  const champs = ['Jinx','Caitlyn','Jhin','Zeri','Draven','Xayah','Ashe','Ezreal'];
+  const opps = ['MissFortune','Vayne','KogMaw','Samira','Tristana','Aphelios'];
+  const roles = ['BOTTOM','BOTTOM','BOTTOM','JUNGLE'];
+  const matches = [];
+  for (let i=0;i<20;i++) {
+    const champ = champs[i%champs.length];
+    const won = Math.random() > 0.46;
+    const dur = 1200 + Math.floor(Math.random()*1200);
+    const kills = Math.floor(Math.random()*15)+2;
+    const deaths = Math.floor(Math.random()*8)+1;
+    const assists = Math.floor(Math.random()*12)+2;
+    const cs = Math.floor(Math.random()*150)+130;
+    const dmg = (10000+Math.floor(Math.random()*20000));
+    const opp = opps[Math.floor(Math.random()*opps.length)];
+    matches.push({
+      metadata:{matchId:`DEMO_${i}`},
+      info:{
+        gameDuration:dur,
+        participants:[{
+          puuid:'demo', championName:champ, win:won,
+          kills, deaths, assists,
+          totalMinionsKilled:cs, neutralMinionsKilled:0,
+          totalDamageDealtToChampions:dmg,
+          physicalDamageDealtToChampions:Math.floor(dmg*.65),
+          magicDamageDealtToChampions:Math.floor(dmg*.3),
+          trueDamageDealtToChampions:Math.floor(dmg*.05),
+          goldEarned:8000+Math.floor(Math.random()*6000),
+          visionScore:15+Math.floor(Math.random()*40),
+          turretKills:Math.floor(Math.random()*3),
+          dragonKills:Math.floor(Math.random()*2),
+          baronKills:Math.floor(Math.random()*2),
+          individualPosition:'BOTTOM',
+          teamId:100,
+          timePlayed:dur,
+        },{
+          puuid:'opp', championName:opp, win:!won,
+          kills:Math.floor(Math.random()*8), deaths:kills, assists:Math.floor(Math.random()*8),
+          totalMinionsKilled:100+Math.floor(Math.random()*100),neutralMinionsKilled:0,
+          totalDamageDealtToChampions:5000+Math.floor(Math.random()*15000),
+          physicalDamageDealtToChampions:5000,magicDamageDealtToChampions:3000,trueDamageDealtToChampions:500,
+          goldEarned:7000,visionScore:20,turretKills:0,dragonKills:0,baronKills:0,
+          individualPosition:'BOTTOM', teamId:200, timePlayed:dur,
+        }]
+      }
+    });
+  }
+  return matches;
+}
+
+// ── MASTERY ──────────────────────────────────────────────────────────
+async function loadMastery() {
+  if (!globalMatchData) return;
+  const { account, summoner, puuid } = globalMatchData;
+  const region = document.getElementById('region-select').value;
+  const routing = RIOT_ROUTING[region];
+
+  try {
+    const [masteries, challenges] = await Promise.all([
+      riotFetch(`https://${routing.platform}.api.riotgames.com/lol/champion-mastery/v4/champion-masteries/by-puuid/${puuid}/top?count=10`),
+      riotFetch(`https://${routing.platform}.api.riotgames.com/lol/challenges/v1/player-data/${puuid}`).catch(() => null),
+    ]);
+
+    // Total mastery score
+    const totalScore = masteries.reduce((a, m) => a + m.championPoints, 0);
+    document.getElementById('mastery-total').textContent = totalScore.toLocaleString();
+
+    // Champion names from DDragon
+    const ddUrl = `https://ddragon.leagueoflegends.com/cdn/${VERSION}/data/en_US/champion.json`;
+    const ddRes = await fetch(ddUrl);
+    const ddData = await ddRes.json();
+    const champById = {};
+    Object.values(ddData.data).forEach(c => { champById[c.key] = c.id; });
+
+    // Mastery list
+    document.getElementById('mastery-list').innerHTML = masteries.map((m, i) => {
+      const champName = champById[m.championId] || 'Unknown';
+      const iconUrl = `https://ddragon.leagueoflegends.com/cdn/${VERSION}/img/champion/${champName}.png`;
+      const pts = m.championPoints.toLocaleString();
+      const grade = m.championLevel >= 7 ? 'S' : m.championLevel >= 6 ? 'A' : m.championLevel >= 5 ? 'B' : 'C';
+      const gradeColor = grade==='S'?'#FFD700':grade==='A'?'var(--green)':grade==='B'?'var(--blue-accent)':'var(--gold)';
+      const chest = m.chestGranted ? '📦' : '⬜';
+      return `
+        <div style="display:grid;grid-template-columns:36px 36px 1fr auto auto auto;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid rgba(200,170,110,.07)">
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:1.2rem;color:rgba(200,170,110,.3)">#${i+1}</div>
+          <div class="champ-row-icon"><img src="${iconUrl}" onerror="this.parentNode.textContent='${champName.slice(0,3)}'" /></div>
+          <div>
+            <div style="font-weight:700;font-size:.9rem">${champName}</div>
+            <div style="font-size:.7rem;color:rgba(200,170,110,.5);font-family:'Share Tech Mono',monospace">Niveau ${m.championLevel} ${chest}</div>
+          </div>
+          <div style="font-family:'Share Tech Mono',monospace;font-size:.8rem;color:rgba(200,170,110,.6)">${pts} pts</div>
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:1rem;color:${gradeColor}">${grade}</div>
+          <div style="width:80px">
+            <div style="height:4px;background:rgba(255,255,255,.05);border-radius:2px">
+              <div style="height:100%;border-radius:2px;background:${gradeColor};width:${Math.min(100, m.championPoints/100000*100)}%"></div>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    // Mastery chart
+    if (charts.mastery) charts.mastery.destroy();
+    charts.mastery = new Chart(document.getElementById('chartMastery'), {
+      type: 'bar',
+      data: {
+        labels: masteries.slice(0,5).map(m => champById[m.championId] || '?'),
+        datasets: [{
+          label: 'Points',
+          data: masteries.slice(0,5).map(m => m.championPoints),
+          backgroundColor: 'rgba(200,170,110,.6)',
+          borderColor: 'var(--gold)',
+          borderWidth: 1,
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: 'rgba(200,170,110,.6)' }, grid: { color: 'rgba(200,170,110,.05)' } },
+          y: { ticks: { color: 'rgba(200,170,110,.4)', callback: v => (v/1000).toFixed(0)+'k' }, grid: { color: 'rgba(200,170,110,.05)' } }
+        }
+      }
+    });
+
+    // Challenges
+    if (challenges && challenges.totalPoints) {
+      const topChallenges = (challenges.challenges || [])
+        .filter(c => c.percentile && c.percentile < 0.1)
+        .sort((a,b) => a.percentile - b.percentile)
+        .slice(0, 8);
+
+      document.getElementById('challenges-list').innerHTML = `
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
+          <div style="background:rgba(200,170,110,.05);border:1px solid var(--border);padding:16px;text-align:center">
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:1.8rem;color:var(--gold)">${challenges.totalPoints?.current?.toLocaleString()||0}</div>
+            <div style="font-size:.7rem;letter-spacing:2px;color:rgba(200,170,110,.5)">POINTS TOTAL</div>
+          </div>
+          <div style="background:rgba(200,170,110,.05);border:1px solid var(--border);padding:16px;text-align:center">
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:1.8rem;color:var(--blue-accent)">${challenges.totalPoints?.level||'—'}</div>
+            <div style="font-size:.7rem;letter-spacing:2px;color:rgba(200,170,110,.5)">NIVEAU GLOBAL</div>
+          </div>
+          <div style="background:rgba(200,170,110,.05);border:1px solid var(--border);padding:16px;text-align:center">
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:1.8rem;color:var(--green)">${(challenges.challenges||[]).filter(c=>c.level==='MASTER'||c.level==='GRANDMASTER'||c.level==='CHALLENGER').length}</div>
+            <div style="font-size:.7rem;letter-spacing:2px;color:rgba(200,170,110,.5)">MASTER+</div>
+          </div>
+          <div style="background:rgba(200,170,110,.05);border:1px solid var(--border);padding:16px;text-align:center">
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:1.8rem;color:var(--purple)">${(challenges.challenges||[]).length}</div>
+            <div style="font-size:.7rem;letter-spacing:2px;color:rgba(200,170,110,.5)">DÉFIS ACTIFS</div>
+          </div>
+        </div>
+        ${topChallenges.length > 0 ? `
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:.9rem;letter-spacing:2px;color:var(--gold);margin-bottom:10px">TOP DÉFIS (TOP ${(topChallenges[0]?.percentile*100||0).toFixed(1)}% MONDIAL)</div>
+          ${topChallenges.map(c => `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(200,170,110,.07)">
+              <span style="font-size:.85rem">${c.challengeId}</span>
+              <div style="display:flex;gap:10px;align-items:center">
+                <span style="font-family:'Share Tech Mono',monospace;font-size:.8rem;color:var(--gold)">${c.value}</span>
+                <span style="font-size:.7rem;padding:2px 8px;background:rgba(155,89,182,.15);border:1px solid rgba(155,89,182,.4);color:var(--purple);font-family:'Share Tech Mono',monospace">${c.level}</span>
+                <span style="font-size:.7rem;color:rgba(200,170,110,.4);font-family:'Share Tech Mono',monospace">Top ${(c.percentile*100).toFixed(1)}%</span>
+              </div>
+            </div>
+          `).join('')}
+        ` : '<div style="color:rgba(200,170,110,.4);font-size:.8rem;font-family:Share Tech Mono,monospace">Pas de challenges top 10% trouvés</div>'}
+      `;
+    } else {
+      document.getElementById('challenges-list').innerHTML = '<div style="color:rgba(200,170,110,.4);font-size:.8rem;padding:10px;font-family:Share Tech Mono,monospace">Données challenges non disponibles pour cette région</div>';
+    }
+
+  } catch(e) {
+    document.getElementById('mastery-list').innerHTML = `<div style="color:var(--red);font-family:'Share Tech Mono',monospace;font-size:.8rem;padding:20px">Erreur: ${e.message}</div>`;
+  }
+}
+
+// ── LIVE GAME ────────────────────────────────────────────────────────
+async function loadLiveGame() {
+  if (!globalMatchData) return;
+  const { puuid, account } = globalMatchData;
+  const region = document.getElementById('region-select').value;
+  const routing = RIOT_ROUTING[region];
+
+  document.getElementById('live-panel').innerHTML = `
+    <div style="text-align:center;padding:40px">
+      <div class="loader-ring" style="margin:0 auto 16px"></div>
+      <div style="font-family:'Share Tech Mono',monospace;font-size:.85rem;color:var(--gold);letter-spacing:2px">RECHERCHE D'UNE PARTIE ACTIVE...</div>
+    </div>`;
+
+  try {
+    const game = await riotFetch(`https://${routing.platform}.api.riotgames.com/lol/spectator/v5/active-games/by-summoner/${puuid}`);
+
+    // En game !
+    const me = game.participants.find(p => p.puuid === puuid);
+    const myTeam = game.participants.filter(p => p.teamId === me?.teamId);
+    const enemyTeam = game.participants.filter(p => p.teamId !== me?.teamId);
+    const gameDur = Math.floor(game.gameLength / 60) + ':' + String(game.gameLength % 60).padStart(2,'0');
+    const champIcon = `https://ddragon.leagueoflegends.com/cdn/${VERSION}/img/champion/${me?.championName||'Aatrox'}.png`;
+
+    const teamHtml = (team, title, color) => `
+      <div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:.9rem;letter-spacing:3px;color:${color};margin-bottom:10px">${title}</div>
+        ${team.map(p => {
+          const ic = `https://ddragon.leagueoflegends.com/cdn/${VERSION}/img/champion/${p.championName}.png`;
+          const isMe = p.puuid === puuid;
+          return `<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid rgba(200,170,110,.07);background:${isMe?'rgba(200,170,110,.05)':''}">
+            <div class="champ-row-icon" style="border-color:${color}"><img src="${ic}" onerror="this.parentNode.textContent='${p.championName?.slice(0,3)}'" /></div>
+            <span style="font-weight:${isMe?700:400};font-size:.85rem">${p.riotId||p.summonerName||'Joueur'}${isMe?' ◀':''}</span>
+          </div>`;
+        }).join('')}
+      </div>
+    `;
+
+    document.getElementById('live-panel').innerHTML = `
+      <div style="display:flex;align-items:center;gap:16px;margin-bottom:24px;padding:16px;background:rgba(75,181,94,.05);border:1px solid rgba(75,181,94,.3)">
+        <div style="width:12px;height:12px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 1s ease-in-out infinite"></div>
+        <div>
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:3px;color:var(--green)">EN PARTIE ACTUELLEMENT</div>
+          <div style="font-size:.8rem;color:rgba(200,170,110,.6);font-family:'Share Tech Mono',monospace">${game.gameMode} — ${gameDur} écoulées</div>
+        </div>
+        <div style="margin-left:auto;display:flex;align-items:center;gap:12px">
+          <div class="champ-icon" style="border-color:var(--green)"><img src="${champIcon}" /></div>
+          <div>
+            <div style="font-weight:700">${me?.championName||'?'}</div>
+            <div style="font-size:.7rem;color:rgba(200,170,110,.5)">${account.gameName}</div>
+          </div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
+        ${teamHtml(myTeam, 'TON ÉQUIPE', 'var(--blue-accent)')}
+        ${teamHtml(enemyTeam, 'ÉQUIPE ENNEMIE', 'var(--red)')}
+      </div>
+      <div style="margin-top:16px;text-align:center">
+        <button onclick="loadLiveGame()" style="background:transparent;border:1px solid var(--border);color:var(--gold);font-family:'Bebas Neue',sans-serif;font-size:.9rem;letter-spacing:2px;padding:8px 20px;cursor:pointer">🔄 ACTUALISER</button>
+      </div>
+    `;
+
+  } catch(e) {
+    // Not in game
+    document.getElementById('live-panel').innerHTML = `
+      <div style="text-align:center;padding:60px">
+        <div style="font-size:3rem;margin-bottom:16px">💤</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:4px;color:rgba(200,170,110,.5);margin-bottom:8px">${account.gameName} N'EST PAS EN PARTIE</div>
+        <div style="font-size:.8rem;font-family:'Share Tech Mono',monospace;color:rgba(200,170,110,.3);margin-bottom:20px">Aucune partie active détectée</div>
+        <button onclick="loadLiveGame()" style="background:transparent;border:1px solid var(--border);color:var(--gold);font-family:'Bebas Neue',sans-serif;font-size:.9rem;letter-spacing:2px;padding:10px 24px;cursor:pointer">🔄 VÉRIFIER À NOUVEAU</button>
+      </div>
+    `;
+  }
+}
+
+// ── ITEMS + SCOREBOARD ───────────────────────────────────────────────
+const ITEM_BASE = 'https://ddragon.leagueoflegends.com/cdn/14.10.1/img/item/';
+const RANK_ORDER = ['IRON','BRONZE','SILVER','GOLD','PLATINUM','EMERALD','DIAMOND','MASTER','GRANDMASTER','CHALLENGER'];
+
+function itemIcon(id, cls='') {
+  if (!id) return '<div class="p-item" style="opacity:.15"></div>';
+  return '<div class="p-item '+cls+'"><img src="'+ITEM_BASE+id+'.png" onerror="this.parentNode.style.opacity=.1" /></div>';
+}
+
+function rankClass(tier) {
+  if (!tier) return 'rank-c';
+  const t = tier.toUpperCase();
+  if (t==='IRON'||t==='BRONZE') return 'rank-c';
+  if (t==='SILVER') return 'rank-s';
+  if (t==='GOLD') return 'rank-g';
+  if (t==='PLATINUM') return 'rank-p';
+  if (t==='EMERALD') return 'rank-e';
+  if (t==='DIAMOND') return 'rank-d';
+  if (t==='MASTER') return 'rank-m';
+  if (t==='GRANDMASTER') return 'rank-gm';
+  if (t==='CHALLENGER') return 'rank-ch';
+  return 'rank-c';
+}
+
+function rankShort(tier, rank) {
+  if (!tier) return 'UNRANKED';
+  const t = tier.toUpperCase();
+  if (t==='MASTER'||t==='GRANDMASTER'||t==='CHALLENGER') return t.slice(0,4);
+  return t.slice(0,1) + (rank||'');
+}
+
+// Store all match details for scoreboard
+let allMatchDetails = [];
+let currentPuuid = '';
+
+function openMatchDetail(idx) {
+  const m = allMatchDetails[idx];
+  if (!m) return;
+  const overlay = document.getElementById('match-detail-overlay');
+  const box = document.getElementById('match-detail-box');
+  
+  const blue = m.info.participants.filter(p => p.teamId === 100);
+  const red  = m.info.participants.filter(p => p.teamId === 200);
+  const blueWin = blue[0]?.win;
+  const maxDmg = Math.max(...m.info.participants.map(p => p.totalDamageDealtToChampions));
+  const dur = Math.floor(m.info.gameDuration/60)+':'+String(m.info.gameDuration%60).padStart(2,'0');
+
+  const playerRowHtml = (p) => {
+    const isMe = p.puuid === currentPuuid;
+    const kda = p.kills+'/'+p.deaths+'/'+p.assists;
+    const kdaVal = p.deaths===0 ? (p.kills+p.assists) : ((p.kills+p.assists)/p.deaths);
+    const kdaR = p.deaths===0 ? 'Perfect' : kdaVal.toFixed(2);
+    const kdaColor = kdaVal >= 4 ? '#00d4aa' : kdaVal >= 2.5 ? 'var(--gold)' : 'rgba(200,155,60,.5)';
+    const cs = p.totalMinionsKilled + p.neutralMinionsKilled;
+    const csPerMin = (cs / (p.timePlayed/60)).toFixed(1);
+    const dmg = Math.round(p.totalDamageDealtToChampions/1000);
+    const dmgPct = Math.round(p.totalDamageDealtToChampions/maxDmg*100);
+    const dmgColor = dmgPct >= 30 ? 'var(--red)' : dmgPct >= 20 ? 'var(--gold)' : 'rgba(200,155,60,.4)';
+    const items = [p.item0,p.item1,p.item2,p.item3,p.item4,p.item5];
+    const trinket = p.item6;
+    const champIcon = 'https://ddragon.leagueoflegends.com/cdn/14.10.1/img/champion/'+p.championName+'.png';
+    const name = p.riotIdGameName || p.summonerName || '?';
+    const lvl = p.champLevel || '';
+    // Performance badge based on stats
+    const perfScore = (kdaVal*20) + (dmgPct*0.5) + (cs/10);
+    const perfLabel = perfScore > 90 ? 'MVP' : perfScore > 65 ? 'CARRY' : perfScore > 40 ? 'OK' : 'AFK';
+    const perfColor = perfScore > 90 ? '#FFD700' : perfScore > 65 ? 'var(--green)' : perfScore > 40 ? 'var(--blue-accent)' : 'rgba(200,155,60,.3)';
+    
+    return '<div class="player-row'+(isMe?' is-me':'')+'">'+
+      '<div style="position:relative">'+
+        '<div class="player-champ"><img src="'+champIcon+'" onerror="this.onerror=null;this.style.opacity=0.3" /></div>'+
+        '<div style="position:absolute;bottom:-3px;right:-3px;background:var(--blue-deep);border:1px solid rgba(200,155,60,.3);border-radius:2px;font-size:.5rem;font-family:Share Tech Mono,monospace;padding:0 2px;color:var(--gold)">'+lvl+'</div>'+
+      '</div>'+
+      '<div style="display:flex;flex-direction:column;gap:2px">'+
+        '<span style="font-size:.58rem;font-family:Share Tech Mono,monospace;padding:1px 4px;border-radius:2px;background:rgba(0,0,0,.3);border:1px solid '+perfColor+';color:'+perfColor+'">'+perfLabel+'</span>'+
+        '<span style="font-size:.55rem;color:rgba(200,155,60,.3);font-family:Share Tech Mono,monospace">'+p.visionScore+' vis</span>'+
+      '</div>'+
+      '<div>'+
+        '<div class="player-name" style="font-size:.8rem">'+(isMe?'<span style="color:var(--gold)">▶ '+name+'</span>':name)+'</div>'+
+        '<div style="font-size:.6rem;color:rgba(200,155,60,.4);font-family:Share Tech Mono,monospace">'+p.championName+'</div>'+
+      '</div>'+
+      '<div class="player-kda-cell">'+kda+'<br><span style="color:'+kdaColor+';font-weight:700">'+kdaR+'</span></div>'+
+      '<div style="font-family:Share Tech Mono,monospace;font-size:.72rem;text-align:center">'+
+        '<div style="color:rgba(200,155,60,.7)">'+cs+' CS</div>'+
+        '<div style="color:'+dmgColor+';font-weight:700">'+dmg+'k DMG</div>'+
+        '<div class="dmg-bar-wrap"><div class="dmg-bar" style="width:'+dmgPct+'%;background:'+dmgColor+'"></div></div>'+
+        '<div style="color:rgba(200,155,60,.4);font-size:.6rem">'+csPerMin+' cs/m</div>'+
+      '</div>'+
+      '<div style="display:grid;grid-template-columns:repeat(4,24px);gap:2px;align-items:center">'+items.slice(0,6).map(id=>itemIcon(id)).join('')+itemIcon(trinket,'trinket')+'</div>'+
+    '</div>';
+  };
+
+  const teamHtml = (team, won) => {
+    const teamKills = team.reduce((a,p)=>a+p.kills,0);
+    const teamDmg = Math.round(team.reduce((a,p)=>a+p.totalDamageDealtToChampions,0)/1000);
+    const teamGold = Math.round(team.reduce((a,p)=>a+p.goldEarned,0)/1000);
+    return '<div class="team-section '+(won?'team-win':'team-loss')+'">'+
+      '<div class="team-title" style="display:flex;justify-content:space-between;align-items:center">'+
+        '<span>'+(won?'✓ VICTOIRE':'✗ DÉFAITE')+' — '+(team[0]?.teamId===100?'ÉQUIPE BLEUE':'ÉQUIPE ROUGE')+'</span>'+
+        '<span style="font-size:.65rem;font-family:Share Tech Mono,monospace;color:rgba(200,155,60,.5)">'+teamKills+' kills · '+teamDmg+'k dmg · '+teamGold+'k gold</span>'+
+      '</div>'+
+      '<div style="display:grid;grid-template-columns:40px 52px 1fr 85px 110px 160px;gap:8px;padding:4px 10px 2px;font-size:.58rem;letter-spacing:1px;color:rgba(200,155,60,.35);font-family:Share Tech Mono,monospace">'+
+        '<div></div><div>PERF</div><div>JOUEUR</div><div style="text-align:center">KDA</div><div style="text-align:center">CS · DÉGÂTS</div><div>ITEMS</div>'+
+      '</div>'+
+      team.map(p => playerRowHtml(p)).join('')+
+    '</div>';
+  };
+
+  const myP = m.info.participants.find(p => p.puuid === currentPuuid);
+  box.innerHTML = 
+    '<div class="match-detail-header">'+
+      '<div>'+
+        '<div style="font-family:Bebas Neue,sans-serif;font-size:1.2rem;letter-spacing:3px;color:'+(myP?.win?'var(--green)':'var(--red))')+'">'+(myP?.win?'VICTOIRE':'DÉFAITE')+'</div>'+
+        '<div style="font-size:.72rem;color:rgba(200,155,60,.5);font-family:Share Tech Mono,monospace">'+dur+' · '+m.info.gameMode+'</div>'+
+      '</div>'+
+      '<button class="match-detail-close" onclick="closeMatchDetail()">✕ FERMER</button>'+
+    '</div>'+
+    teamHtml(blue, blueWin)+
+    teamHtml(red, !blueWin)+
+    '<div style="height:16px"></div>';
+
+  overlay.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
+function closeMatchDetail(e) {
+  if (e && e.target !== document.getElementById('match-detail-overlay')) return;
+  document.getElementById('match-detail-overlay').style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+
+// ── GAME SWITCH ──────────────────────────────────────────────────────
+let currentGame = 'lol';
+let tftMatchData = null;
+
+function switchGame(game) {
+  currentGame = game;
+  document.getElementById('btn-lol').classList.toggle('active', game === 'lol');
+  document.getElementById('btn-tft').classList.toggle('active', game === 'tft');
+  document.getElementById('main-content').style.display = game === 'lol' ? 'block' : 'none';
+  document.getElementById('tft-content').style.display = game === 'tft' ? 'block' : 'none';
+  
+  // Update hero subtitle
+  const sub = document.querySelector('.hero-subtitle');
+  if (sub) {
+    sub.innerHTML = game === 'lol' 
+      ? 'Analyse tes parties.<br>Identifie tes failles.<br>Monte en elo.'
+      : 'Analyse tes comps.<br>Optimise tes augments.<br>Monte en TFT.';
+  }
+}
+
+function switchTftTab(name) {
+  document.querySelectorAll('#tft-tabs .tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tft-tab').forEach(t => t.style.display = 'none');
+  const tabs = ['overview','history','comps','units','augments','ai'];
+  const idx = tabs.indexOf(name);
+  document.querySelectorAll('#tft-tabs .tab-btn')[idx].classList.add('active');
+  document.getElementById('tft-tab-'+name).style.display = 'block';
+}
+
+// ── TFT API ───────────────────────────────────────────────────────────
+async function searchTft() {
+  const raw = document.getElementById('summoner-input').value.trim();
+  if (!raw) return;
+  const region = document.getElementById('region-select').value;
+  const routing = RIOT_ROUTING[region];
+
+  setLoading(true, 'CHARGEMENT TFT...');
+  showError('');
+  document.getElementById('tft-content').style.display = 'none';
+
+  try {
+    let gameName, tagLine;
+    if (raw.includes('#')) { [gameName, tagLine] = raw.split('#'); } else { gameName = raw; tagLine = region.toUpperCase(); }
+
+    const account = await riotFetch(`https://${routing.account}.api.riotgames.com/riot/account/v1/accounts/by-riot-id/${encodeURIComponent(gameName)}/${encodeURIComponent(tagLine)}`);
+    setLoading(true, 'PROFIL TFT...');
+
+    const summoner = await riotFetch(`https://${routing.platform}.api.riotgames.com/tft/summoner/v1/summoners/by-puuid/${account.puuid}`);
+    const ranked = await riotFetch(`https://${routing.platform}.api.riotgames.com/tft/league/v1/entries/by-summoner/${summoner.id}`);
+    const tftRank = ranked.find(r => r.queueType === 'RANKED_TFT') || null;
+
+    setLoading(true, 'HISTORIQUE TFT...');
+    const matchIds = await riotFetch(`https://${routing.match}.api.riotgames.com/tft/match/v1/matches/by-puuid/${account.puuid}/ids?count=20`);
+
+    const matches = [];
+    const batchSize = 5;
+    for (let b = 0; b < Math.min(matchIds.length, 20); b += batchSize) {
+      const batch = matchIds.slice(b, b + batchSize);
+      setLoading(true, `PARTIES TFT ${b+1}-${Math.min(b+batchSize, matchIds.length)}/20...`);
+      const results = await Promise.all(
+        batch.map(id => riotFetch(`https://${routing.match}.api.riotgames.com/tft/match/v1/matches/${id}`))
+      );
+      matches.push(...results);
+    }
+
+    tftMatchData = { account, summoner, tftRank, matches, puuid: account.puuid };
+    renderTft();
+  } catch(e) {
+    showError('Erreur TFT: ' + e.message);
+  } finally {
+    setLoading(false);
+  }
+}
+
+// ── TFT RENDER ────────────────────────────────────────────────────────
+function renderTft() {
+  if (!tftMatchData) return;
+  const { account, summoner, tftRank, matches, puuid } = tftMatchData;
+
+  // Summoner card
+  const iconUrl = `https://ddragon.leagueoflegends.com/cdn/${VERSION}/img/profileicon/${summoner.profileIconId}.png`;
+  const tierCls = tftRank ? 'rank-'+tftRank.tier.toLowerCase().slice(0,4) : '';
+  document.getElementById('tft-summoner-card').innerHTML = `
+    <div class="summoner-avatar"><img src="${iconUrl}" onerror="this.parentNode.textContent='${account.gameName[0]}'" /></div>
+    <div class="summoner-info">
+      <h2>${account.gameName}<span style="color:var(--gold);opacity:.5">#${account.tagLine}</span></h2>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
+        <span style="font-size:.75rem;color:var(--blue-accent);font-family:'Share Tech Mono',monospace;border:1px solid rgba(0,200,255,.3);padding:2px 8px">🎲 TFT</span>
+        ${tftRank ? `<span class="rank-badge ${tierCls}">${tftRank.tier} ${tftRank.rank} — ${tftRank.leaguePoints} LP</span>` : '<span style="color:rgba(200,155,60,.4);font-size:.85rem">Non classé TFT</span>'}
+      </div>
+    </div>
+    <div class="summoner-stats">
+      ${tftRank ? `
+        <div class="stat-block"><div class="val">${tftRank.wins+tftRank.losses}</div><div class="lbl">PARTIES</div></div>
+        <div class="stat-block"><div class="val" style="color:var(--gold)">${Math.round(tftRank.wins/(tftRank.wins+tftRank.losses)*100)}%</div><div class="lbl">TOP 4</div></div>
+        <div class="stat-block"><div class="val">${tftRank.wins}</div><div class="lbl">TOP 4</div></div>
+        <div class="stat-block"><div class="val">${tftRank.losses}</div><div class="lbl">FLOP 4</div></div>
+      ` : ''}
+    </div>`;
+
+  // Process matches
+  const placements = [];
+  const unitMap = {};
+  const augmentMap = {};
+  const traitMap = {};
+  let totalPlacement = 0, top4 = 0, wins = 0;
+  const lpHistory = [];
+
+  matches.forEach(m => {
+    const p = m.info?.participants?.find(x => x.puuid === puuid);
+    if (!p) return;
+    const place = p.placement;
+    placements.push(place);
+    totalPlacement += place;
+    if (place <= 4) top4++;
+    if (place === 1) wins++;
+    lpHistory.unshift(place <= 4 ? (lpHistory[0]||0)+18 : (lpHistory[0]||0)-16);
+
+    // Units
+    (p.units || []).forEach(u => {
+      const key = u.character_id;
+      if (!unitMap[key]) unitMap[key] = { games:0, placements:[], cost:u.rarity||0 };
+      unitMap[key].games++;
+      unitMap[key].placements.push(place);
+      unitMap[key].cost = u.rarity || 0;
+    });
+
+    // Augments
+    (p.augments || []).forEach(aug => {
+      if (!augmentMap[aug]) augmentMap[aug] = { games:0, placements:[] };
+      augmentMap[aug].games++;
+      augmentMap[aug].placements.push(place);
+    });
+
+    // Traits
+    (p.traits || []).filter(t => t.tier_current > 0).forEach(t => {
+      const key = t.name;
+      if (!traitMap[key]) traitMap[key] = { games:0, placements:[], tier:0 };
+      traitMap[key].games++;
+      traitMap[key].placements.push(place);
+      traitMap[key].tier = Math.max(traitMap[key].tier, t.tier_current);
+    });
+  });
+
+  const n = placements.length || 1;
+  const avgPlacement = (totalPlacement/n).toFixed(2);
+  const top4Rate = Math.round(top4/n*100);
+  const winRate = Math.round(wins/n*100);
+
+  // Stats panels
+  document.getElementById('tft-top4').innerHTML = `
+    <div style="text-align:center;padding:20px">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:3rem;color:${top4Rate>=50?'var(--green)':'var(--red)'}">${top4Rate}%</div>
+      <div style="font-size:.75rem;color:rgba(200,155,60,.5);font-family:'Share Tech Mono',monospace">${top4} top4 sur ${n} parties</div>
+    </div>`;
+
+  document.getElementById('tft-winrate').innerHTML = `
+    <div style="text-align:center;padding:20px">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:3rem;color:#FFD700">${winRate}%</div>
+      <div style="font-size:.75rem;color:rgba(200,155,60,.5);font-family:'Share Tech Mono',monospace">${wins} victoires · placement moy: ${avgPlacement}</div>
+    </div>`;
+
+  // Placement distribution chart
+  const placeDist = Array(8).fill(0);
+  placements.forEach(p => { if(p>=1&&p<=8) placeDist[p-1]++; });
+
+  if (charts.tftPlacement) charts.tftPlacement.destroy();
+  charts.tftPlacement = new Chart(document.getElementById('chartTftPlacement'), {
+    type: 'bar',
+    data: {
+      labels: ['1er','2ème','3ème','4ème','5ème','6ème','7ème','8ème'],
+      datasets: [{ 
+        data: placeDist,
+        backgroundColor: ['#FFD700','#C0C0C0','#CD7F32','rgba(61,202,110,.7)','rgba(200,155,60,.5)','rgba(200,155,60,.4)','rgba(232,64,87,.5)','rgba(232,64,87,.7)'],
+        borderWidth: 1,
+      }]
+    },
+    options: { responsive:true, plugins:{legend:{display:false}}, scales:{x:{ticks:{color:'rgba(200,155,60,.6)'},grid:{color:'rgba(200,155,60,.05)'}},y:{ticks:{color:'rgba(200,155,60,.4)'},grid:{color:'rgba(200,155,60,.05)'}}}}
+  });
+
+  // Top4 vs Flop chart
+  if (charts.tftTopBot) charts.tftTopBot.destroy();
+  charts.tftTopBot = new Chart(document.getElementById('chartTftTopBot'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Top 4','Flop 4'],
+      datasets: [{ data:[top4, n-top4], backgroundColor:['rgba(61,202,110,.8)','rgba(232,64,87,.7)'], borderColor:['#3DCA6E','#E84057'], borderWidth:2 }]
+    },
+    options: {
+      responsive:true, cutout:'70%',
+      plugins:{legend:{labels:{color:'#C8AA6E',font:{family:'Rajdhani',size:13}}}}
+    },
+    plugins:[{id:'center',beforeDraw:chart=>{const{width,height,ctx}=chart;ctx.restore();ctx.font='bold 1.5rem Bebas Neue';ctx.fillStyle=top4Rate>=50?'#3DCA6E':'#E84057';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(top4Rate+'%',width/2,height/2);ctx.save();}}]
+  });
+
+  // LP chart
+  if (charts.tftLP) charts.tftLP.destroy();
+  charts.tftLP = new Chart(document.getElementById('chartTftLP'), {
+    type:'line',
+    data:{labels:lpHistory.map((_,i)=>'G'+(i+1)),datasets:[{label:'LP estimé',data:lpHistory,borderColor:'#C89B3C',backgroundColor:'rgba(200,155,60,.08)',fill:true,tension:.4,pointRadius:3,pointBackgroundColor:'#C89B3C'}]},
+    options:{responsive:true,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'rgba(200,155,60,.4)',font:{size:10}},grid:{color:'rgba(200,155,60,.05)'}},y:{ticks:{color:'rgba(200,155,60,.4)',font:{size:10}},grid:{color:'rgba(200,155,60,.05)'}}}}
+  });
+
+  // Recent matches (last 5)
+  renderTftMatchList('tft-recent', matches.slice(0,5), puuid, true);
+  renderTftMatchList('tft-history-list', matches, puuid, false);
+
+  // Comps
+  renderTftComps(matches, puuid, traitMap);
+
+  // Units
+  renderTftUnits(unitMap);
+
+  // Augments
+  renderTftAugments(augmentMap);
+
+  document.getElementById('tft-content').style.display = 'block';
+}
+
+function renderTftMatchList(containerId, matches, puuid, compact) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  el.innerHTML = matches.map(m => {
+    const p = m.info?.participants?.find(x => x.puuid === puuid);
+    if (!p) return '';
+    const place = p.placement;
+    const placeClass = place===1?'place-1':place===2?'place-2':place===3?'place-3':place===4?'place-4':place<=6?'place-5':'place-7';
+    const units = (p.units||[]).sort((a,b)=>(b.rarity||0)-(a.rarity||0)).slice(0,6);
+    const traits = (p.traits||[]).filter(t=>t.tier_current>0).slice(0,4);
+    const augments = (p.augments||[]);
+    const dur = Math.floor(m.info.game_length/60)+'m'+String(Math.floor(m.info.game_length%60)).padStart(2,'0')+'s';
+    
+    const costClass = (r) => r>=4?'cost-5':r>=3?'cost-4':r>=2?'cost-3':r>=1?'cost-2':'cost-1';
+    const augClass = (aug) => aug.includes('III')||aug.includes('Prismatic')?'aug-prismatic':aug.includes('II')||aug.includes('Gold')?'aug-gold':'aug-silver';
+    
+    return `<div class="tft-match">
+      <div class="placement-badge ${placeClass}">${place}</div>
+      <div>
+        <div style="display:flex;gap:3px;margin-bottom:5px;flex-wrap:wrap">
+          ${units.map(u => {
+            const champName = u.character_id.replace('TFT13_','').replace('TFT12_','').replace('TFT11_','').replace('TFT10_','');
+            return '<div class="unit-icon '+costClass(u.rarity||0)+'"><img src="https://ddragon.leagueoflegends.com/cdn/'+VERSION+'/img/champion/'+champName+'.png" onerror="this.style.display='none'" title="'+champName+'"/></div>';
+          }).join('')}
+        </div>
+        <div style="display:flex;gap:2px;flex-wrap:wrap">
+          ${traits.map(t => {
+            const tier = t.tier_current;
+            const tc = tier>=4?'trait-chroma':tier>=3?'trait-gold':tier>=2?'trait-silver':'trait-bronze';
+            return '<span class="trait-badge '+tc+'">'+t.name.replace('Set13_','').replace('Set12_','').replace('Set11_','')+'</span>';
+          }).join('')}
+        </div>
+        ${!compact ? '<div style="display:flex;gap:2px;margin-top:4px;flex-wrap:wrap">'+augments.map(aug=>'<span class="augment-badge '+augClass(aug)+'">'+aug.replace('Augment_','').replace(/_/g,' ')+'</span>').join('')+'</div>' : ''}
+      </div>
+      <div style="text-align:right;font-family:'Share Tech Mono',monospace;font-size:.72rem;color:rgba(200,155,60,.5)">
+        <div>${dur}</div>
+        <div style="color:${place<=4?'var(--green)':'var(--red)'}">+${p.last_round||0} rds</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderTftComps(matches, puuid, traitMap) {
+  const el = document.getElementById('tft-comps-list');
+  if (!el) return;
+  const sorted = Object.entries(traitMap)
+    .filter(([,v]) => v.games >= 2)
+    .sort((a,b) => {
+      const avgA = a[1].placements.reduce((s,p)=>s+p,0)/a[1].placements.length;
+      const avgB = b[1].placements.reduce((s,p)=>s+p,0)/b[1].placements.length;
+      return avgA - avgB;
+    });
+
+  if (sorted.length === 0) { el.innerHTML = '<div style="color:rgba(200,155,60,.4);padding:20px;font-family:Share Tech Mono,monospace">Pas assez de données</div>'; return; }
+
+  el.innerHTML = sorted.map(([trait, data]) => {
+    const avg = (data.placements.reduce((s,p)=>s+p,0)/data.placements.length).toFixed(2);
+    const top4 = data.placements.filter(p=>p<=4).length;
+    const top4Rate = Math.round(top4/data.placements.length*100);
+    const color = avg<=3.5?'var(--green)':avg<=5?'var(--gold)':'var(--red)';
+    const traitName = trait.replace('Set13_','').replace('Set12_','').replace('Set11_','').replace('TFT13_','').replace(/_/g,' ');
+    return `<div style="display:grid;grid-template-columns:1fr auto auto auto auto;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid rgba(200,155,60,.07)">
+      <div>
+        <div style="font-weight:700;font-size:.9rem">${traitName}</div>
+        <div style="height:3px;background:rgba(255,255,255,.05);border-radius:2px;margin-top:4px;width:${top4Rate}px">
+          <div style="height:100%;background:${color};border-radius:2px;width:${top4Rate}%"></div>
+        </div>
+      </div>
+      <div style="font-family:'Share Tech Mono',monospace;font-size:.75rem;color:rgba(200,155,60,.5)">${data.games}G</div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:${color}">${avg}</div>
+      <div style="font-size:.72rem;color:rgba(200,155,60,.5);font-family:'Share Tech Mono',monospace">${top4Rate}% top4</div>
+      <div style="font-size:.7rem;padding:2px 8px;font-family:'Share Tech Mono',monospace;color:${color};border:1px solid ${color}">${avg<=3.5?'✓ FORT':avg<=5?'→ MOY':'✗ ÉVITER'}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderTftUnits(unitMap) {
+  const el = document.getElementById('tft-units-list');
+  if (!el) return;
+  const sorted = Object.entries(unitMap).sort((a,b)=>b[1].games-a[1].games).slice(0,12);
+  
+  el.innerHTML = sorted.map(([id, data]) => {
+    const avg = (data.placements.reduce((s,p)=>s+p,0)/data.placements.length).toFixed(1);
+    const color = avg<=3.5?'var(--green)':avg<=5?'var(--gold)':'var(--red)';
+    const champName = id.replace('TFT13_','').replace('TFT12_','').replace('TFT11_','').replace('TFT10_','');
+    const costClass = data.cost>=4?'cost-5':data.cost>=3?'cost-4':data.cost>=2?'cost-3':data.cost>=1?'cost-2':'cost-1';
+    return `<div style="display:grid;grid-template-columns:36px 1fr auto auto;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid rgba(200,155,60,.07)">
+      <div class="unit-icon ${costClass}"><img src="https://ddragon.leagueoflegends.com/cdn/${VERSION}/img/champion/${champName}.png" onerror="this.style.display='none'" /></div>
+      <div style="font-weight:600;font-size:.85rem">${champName}</div>
+      <div style="font-family:'Share Tech Mono',monospace;font-size:.75rem;color:rgba(200,155,60,.5)">${data.games}G</div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:1rem;color:${color}">${avg}</div>
+    </div>`;
+  }).join('');
+
+  // Units by cost chart
+  const costCount = [0,0,0,0,0];
+  Object.values(unitMap).forEach(u => { if(u.cost>=0&&u.cost<=4) costCount[u.cost]+=u.games; });
+  if (charts.tftUnits) charts.tftUnits.destroy();
+  charts.tftUnits = new Chart(document.getElementById('chartTftUnits'), {
+    type:'doughnut',
+    data:{labels:['1 coût','2 coût','3 coût','4 coût','5 coût'],datasets:[{data:costCount,backgroundColor:['#808080','#3DCA6E','#0BC4E3','#A855F7','#FFD700'],borderWidth:2}]},
+    options:{responsive:true,plugins:{legend:{labels:{color:'#C8AA6E',font:{family:'Rajdhani',size:12}}}}}
+  });
+}
+
+function renderTftAugments(augmentMap) {
+  const el = document.getElementById('tft-augments-list');
+  if (!el) return;
+  const sorted = Object.entries(augmentMap)
+    .filter(([,v]) => v.games >= 1)
+    .sort((a,b) => {
+      const avgA = a[1].placements.reduce((s,p)=>s+p,0)/a[1].placements.length;
+      const avgB = b[1].placements.reduce((s,p)=>s+p,0)/b[1].placements.length;
+      return avgA - avgB;
+    }).slice(0, 20);
+
+  if (sorted.length === 0) { el.innerHTML = '<div style="color:rgba(200,155,60,.4);padding:20px;font-family:Share Tech Mono,monospace">Pas assez de données</div>'; return; }
+
+  el.innerHTML = `<div style="display:grid;grid-template-columns:1fr auto auto auto auto;gap:8px;padding:4px 0;margin-bottom:8px;font-size:.6rem;letter-spacing:1px;color:rgba(200,155,60,.4);font-family:'Share Tech Mono',monospace;border-bottom:1px solid var(--border)">
+    <div>AUGMENT</div><div style="text-align:center">PARTIES</div><div style="text-align:center">MOY</div><div style="text-align:center">TOP4</div><div></div>
+  </div>` + sorted.map(([aug, data]) => {
+    const avg = (data.placements.reduce((s,p)=>s+p,0)/data.placements.length).toFixed(2);
+    const top4 = data.placements.filter(p=>p<=4).length;
+    const top4Rate = Math.round(top4/data.placements.length*100);
+    const color = avg<=3.5?'var(--green)':avg<=5?'var(--gold)':'var(--red)';
+    const augName = aug.replace('Augment_','').replace(/_/g,' ');
+    const augType = aug.includes('III')||aug.includes('Prismatic')?'aug-prismatic':aug.includes('II')||aug.includes('Gold')?'aug-gold':'aug-silver';
+    return `<div style="display:grid;grid-template-columns:1fr auto auto auto auto;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid rgba(200,155,60,.07)">
+      <span class="augment-badge ${augType}">${augName}</span>
+      <div style="font-family:'Share Tech Mono',monospace;font-size:.75rem;color:rgba(200,155,60,.5);text-align:center">${data.games}G</div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:${color};text-align:center">${avg}</div>
+      <div style="font-size:.72rem;color:rgba(200,155,60,.5);font-family:'Share Tech Mono',monospace;text-align:center">${top4Rate}%</div>
+      <div style="font-size:.68rem;padding:2px 6px;font-family:'Share Tech Mono',monospace;color:${color};border:1px solid ${color};text-align:center">${avg<=3.5?'✓':avg<=5?'→':'✗'}</div>
+    </div>`;
+  }).join('');
+}
+
+// ── TFT AI COACHING ───────────────────────────────────────────────────
+async function generateTftAnalysis() {
+  if (!tftMatchData) return;
+  const btn = document.getElementById('tft-ai-btn');
+  btn.disabled = true;
+  btn.textContent = '⏳ ANALYSE...';
+
+  document.getElementById('tft-ai-output').innerHTML = `
+    <div class="ai-generating">
+      <div style="width:100%;max-width:480px">
+        <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px">
+          <div style="position:relative;width:44px;height:44px;flex-shrink:0">
+            <div style="position:absolute;inset:0;border-radius:50%;border:2px solid rgba(168,85,247,.2);animation:spin 3s linear infinite"></div>
+            <div style="position:absolute;inset:4px;border-radius:50%;border:2px solid transparent;border-top-color:var(--purple);animation:spin 1s linear infinite"></div>
+            <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:1.1rem">🎲</div>
+          </div>
+          <div>
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:.95rem;letter-spacing:3px;color:var(--purple)">ANALYSE TFT EN COURS</div>
+            <div style="font-family:'Share Tech Mono',monospace;font-size:.68rem;color:rgba(200,155,60,.6);margin-top:2px" id="tft-step-label">Initialisation...</div>
+          </div>
+        </div>
+        <div style="background:rgba(0,0,0,.3);border:1px solid rgba(168,85,247,.15);padding:10px 14px;font-family:'Share Tech Mono',monospace;font-size:.68rem;color:rgba(200,155,60,.5);line-height:1.8;min-height:56px" id="tft-log-box"></div>
+      </div>
+    </div>`;
+
+  const steps = ['Analyse des placements...','Calcul top4 rate...','Évaluation des comps...','Analyse des augments...','Identification patterns...','Génération coaching...'];
+  let si = 0;
+  const interval = setInterval(() => {
+    if (si >= steps.length) { clearInterval(interval); return; }
+    const el = document.getElementById('tft-log-box');
+    const lb = document.getElementById('tft-step-label');
+    if (el) el.innerHTML += (si?'<br>':'')+'▸ '+steps[si];
+    if (lb) lb.textContent = steps[si];
+    si++;
+  }, 600);
+
+  const { account, tftRank, matches, puuid } = tftMatchData;
+  const placements = [];
+  const augStats = {}, traitStats = {};
+  let top4=0, wins=0;
+
+  matches.forEach(m => {
+    const p = m.info?.participants?.find(x=>x.puuid===puuid);
+    if (!p) return;
+    placements.push(p.placement);
+    if(p.placement<=4) top4++;
+    if(p.placement===1) wins++;
+    (p.augments||[]).forEach(aug => {
+      if(!augStats[aug]) augStats[aug]={games:0,placements:[]};
+      augStats[aug].games++;augStats[aug].placements.push(p.placement);
+    });
+    (p.traits||[]).filter(t=>t.tier_current>0).forEach(t=>{
+      if(!traitStats[t.name]) traitStats[t.name]={games:0,placements:[]};
+      traitStats[t.name].games++;traitStats[t.name].placements.push(p.placement);
+    });
+  });
+
+  const n = placements.length||1;
+  const avg = (placements.reduce((a,b)=>a+b,0)/n).toFixed(2);
+  const bestAugs = Object.entries(augStats).sort((a,b)=>(a[1].placements.reduce((s,p)=>s+p,0)/a[1].placements.length)-(b[1].placements.reduce((s,p)=>s+p,0)/b[1].placements.length)).slice(0,5).map(([k,v])=>k.replace('Augment_','').replace(/_/g,' ')+' (avg:'+( v.placements.reduce((s,p)=>s+p,0)/v.placements.length).toFixed(1)+')').join(', ');
+  const bestTraits = Object.entries(traitStats).sort((a,b)=>(a[1].placements.reduce((s,p)=>s+p,0)/a[1].placements.length)-(b[1].placements.reduce((s,p)=>s+p,0)/b[1].placements.length)).slice(0,5).map(([k,v])=>k.replace('Set13_','').replace(/_/g,' ')+' (avg:'+(v.placements.reduce((s,p)=>s+p,0)/v.placements.length).toFixed(1)+')').join(', ');
+
+  const prompt = 'Tu es un coach TFT (Teamfight Tactics) expert. Analyse ces performances et donne un coaching détaillé en FRANÇAIS.
+
+JOUEUR: '+account.gameName+'#'+account.tagLine+'
+RANK TFT: '+(tftRank?tftRank.tier+' '+tftRank.rank+' '+tftRank.leaguePoints+'LP':'Unranked')+'
+
+STATS ('+n+' parties):
+Placement moyen: '+avg+'
+Top4 rate: '+Math.round(top4/n*100)+'% ('+top4+'/'+n+')
+Win rate (1er): '+Math.round(wins/n*100)+'%
+
+MEILLEURS AUGMENTS (par placement moyen):
+'+bestAugs+'
+
+MEILLEURES COMPS/TRAITS:
+'+bestTraits+'
+
+Donne une analyse structurée:
+1. RÉSUMÉ DU NIVEAU (2-3 phrases)
+2. ANALYSE DU STYLE DE JEU (forcing vs flex)
+3. AUGMENTS (lesquels prendre/éviter)
+4. COMPOSITIONS (tes meilleures comps)
+5. POINTS FORTS (3 points)
+6. POINTS À AMÉLIORER (3 points avec conseils concrets)
+7. CONSEIL PRIORITAIRE (1 seule chose urgente)
+
+Sois spécifique au TFT, direct et précis.';
+
+  let groqKey = localStorage.getItem('lol_scout_groq_key')||'';
+  if (!groqKey) {
+    groqKey = window.prompt('Clé Groq (gsk_...) — gratuit sur console.groq.com');
+    if (!groqKey) { clearInterval(interval); btn.disabled=false; btn.textContent='⚡ ANALYSER MON TFT'; return; }
+    localStorage.setItem('lol_scout_groq_key', groqKey);
+  }
+
+  try {
+    const res = await fetch(PROXY_URL+'/groq', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ apiKey: groqKey, messages: [{role:'user',content:prompt}] })
+    });
+    const data = await res.json();
+    const text = data.choices?.[0]?.message?.content||'';
+    if (!text) throw new Error('Réponse vide');
+    clearInterval(interval);
+    renderAIOutput(text, 'tft-ai-output');
+  } catch(e) {
+    clearInterval(interval);
+    document.getElementById('tft-ai-output').innerHTML = '<div style="color:var(--red);font-family:Share Tech Mono,monospace;font-size:.85rem;padding:20px">Erreur: '+e.message+'</div>';
+  } finally {
+    btn.disabled=false;
+    btn.textContent='🔄 REGÉNÉRER';
+  }
+}
+
+// ── MEDAL CLIPS ──────────────────────────────────────────────────────
+const MEDAL_USER = 'yoanvn';
+// League of Legends category ID on Medal
+const LOL_CATEGORY = 10;
+
+async function loadMedalClips() {
+  const keyInput = document.getElementById('medal-key-input');
+  let apiKey = keyInput?.value?.trim() || localStorage.getItem('medal_api_key') || '';
+  
+  if (!apiKey) {
+    document.getElementById('clips-grid').innerHTML = `
+      <div style="text-align:center;padding:40px;color:rgba(200,155,60,.4);grid-column:1/-1;font-family:'Share Tech Mono',monospace">
+        <div style="font-size:2rem;margin-bottom:12px">🔑</div>
+        <div style="margin-bottom:8px">Entre ta clé API Medal pour voir tes clips</div>
+        <a href="https://developers.medal.tv" target="_blank" style="color:var(--blue-accent)">Obtenir une clé gratuite →</a>
+      </div>`;
+    return;
+  }
+  
+  localStorage.setItem('medal_api_key', apiKey);
+  if (keyInput) keyInput.value = apiKey;
+
+  document.getElementById('clips-grid').innerHTML = `
+    <div style="text-align:center;padding:40px;grid-column:1/-1">
+      <div class="loader-ring" style="margin:0 auto 16px"></div>
+      <div style="font-family:'Share Tech Mono',monospace;font-size:.85rem;color:var(--gold);letter-spacing:2px">CHARGEMENT DES CLIPS...</div>
+    </div>`;
+
+  try {
+    // Get user ID from username first
+    const searchRes = await fetch(
+      'https://developers.medal.tv/v1/search?text='+MEDAL_USER+'&limit=1&offset=0',
+      { headers: { 'Authorization': apiKey } }
+    );
+    
+    if (!searchRes.ok) throw new Error('Clé API Medal invalide (HTTP '+searchRes.status+')');
+    
+    // Try fetching clips by username directly
+    const clipsRes = await fetch(
+      'https://developers.medal.tv/v1/latest?limit=12&categoryId='+LOL_CATEGORY,
+      { headers: { 'Authorization': apiKey } }
+    );
+
+    if (!clipsRes.ok) throw new Error('Erreur API Medal: '+clipsRes.status);
+    const data = await clipsRes.json();
+    const clips = data.contentObjects || [];
+
+    if (clips.length === 0) {
+      document.getElementById('clips-grid').innerHTML = `
+        <div style="text-align:center;padding:60px;color:rgba(200,155,60,.3);grid-column:1/-1">
+          <div style="font-size:2rem;margin-bottom:12px">😴</div>
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:1rem;letter-spacing:3px">AUCUN CLIP TROUVÉ</div>
+          <div style="font-size:.75rem;font-family:'Share Tech Mono',monospace;margin-top:8px">Installe Medal et joue quelques parties pour générer des clips !</div>
+        </div>`;
+      return;
+    }
+
+    document.getElementById('clips-grid').innerHTML = clips.map(clip => {
+      const dur = clip.videoLengthSeconds ? Math.floor(clip.videoLengthSeconds/60)+'m'+String(clip.videoLengthSeconds%60).padStart(2,'0')+'s' : '';
+      const views = clip.contentViews?.toLocaleString() || '0';
+      const likes = clip.contentLikes?.toLocaleString() || '0';
+      const date = clip.createdTimestamp ? new Date(clip.createdTimestamp).toLocaleDateString('fr-FR') : '';
+      
+      return `<div style="background:var(--panel);border:1px solid var(--border);overflow:hidden;transition:all .2s;cursor:pointer" 
+                onmouseover="this.style.borderColor='var(--gold-bright)';this.style.transform='translateY(-4px)';this.style.boxShadow='0 12px 32px rgba(0,0,0,.6)'"
+                onmouseout="this.style.borderColor='rgba(200,155,60,.2)';this.style.transform='';this.style.boxShadow=''">
+        <div style="position:relative;padding-bottom:56.25%;background:var(--blue-mid)">
+          ${clip.embedIframeCode 
+            ? clip.embedIframeCode.replace('width='640'','width='100%'').replace('height='360'','height='100%'').replace("style=''","style='position:absolute;top:0;left:0;width:100%;height:100%;border:none'").replace('<iframe','<iframe style="position:absolute;top:0;left:0;width:100%;height:100%;border:none"')
+            : '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:rgba(200,155,60,.3);font-size:2rem">▶</div>'
+          }
+          <div style="position:absolute;bottom:8px;right:8px;background:rgba(0,0,0,.7);color:white;font-family:Share Tech Mono,monospace;font-size:.65rem;padding:2px 6px;border-radius:2px">${dur}</div>
+        </div>
+        <div style="padding:10px 12px">
+          <div style="font-weight:700;font-size:.85rem;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${clip.contentTitle||'Clip'}</div>
+          <div style="display:flex;gap:12px;font-family:Share Tech Mono,monospace;font-size:.68rem;color:rgba(200,155,60,.5)">
+            <span>👁 ${views}</span>
+            <span>❤️ ${likes}</span>
+            <span>${date}</span>
+            <a href="${clip.directClipUrl||'#'}" target="_blank" style="color:var(--blue-accent);margin-left:auto">Voir →</a>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+
+  } catch(e) {
+    document.getElementById('clips-grid').innerHTML = `
+      <div style="color:var(--red);font-family:'Share Tech Mono',monospace;font-size:.82rem;padding:30px;text-align:center;grid-column:1/-1">
+        <div style="font-size:2rem;margin-bottom:10px">⚠️</div>
+        <div>${e.message}</div>
+        <div style="margin-top:10px;font-size:.7rem;color:rgba(200,155,60,.3)">
+          Vérifie ta clé API sur developers.medal.tv<br>
+          Note: les clips apparaissent seulement si tu as Medal installé sur ton PC et publié des clips
+        </div>
+      </div>`;
+  }
+}
+
+// ── LOCAL CACHE ───────────────────────────────────────────────────────
+const CACHE_KEY = 'lol_scout_cache';
+function saveCache(puuid, data) {
+  try {
+    localStorage.setItem(CACHE_KEY+'_'+puuid, JSON.stringify({ ts: Date.now(), data }));
+  } catch(e) {}
+}
+function loadCache(puuid) {
+  try {
+    const raw = localStorage.getItem(CACHE_KEY+'_'+puuid);
+    if (!raw) return null;
+    const { ts, data } = JSON.parse(raw);
+    // Cache valid 15 minutes
+    if (Date.now() - ts > 30 * 60 * 1000) return null;
+    return data;
+  } catch(e) { return null; }
+}
+
+// ── GOLD IV VN BENCHMARKS (moyenne estimée) ──────────────────────────
+const ELO_BENCH = {
+  csPerMin: 6.2, kda: 2.1, visionScore: 22, dmgK: 16.5,
+  wRate: 51, fbRate: 18, avgDur: 28
+};
+
+// ── ROLES TAB ─────────────────────────────────────────────────────────
+function renderRoles() {
+  if (!globalMatchData) return;
+  const { matches, puuid } = globalMatchData;
+  const roleMap = {};
+  const ROLE_LABELS = { TOP:'TOP', JUNGLE:'JGL', MIDDLE:'MID', BOTTOM:'BOT', UTILITY:'SUP', NONE:'?' };
+
+  matches.forEach(m => {
+    const p = m.info.participants.find(x => x.puuid === puuid);
+    if (!p) return;
+    const role = p.individualPosition || p.teamPosition || 'NONE';
+    if (!roleMap[role]) roleMap[role] = { wins:0, losses:0, kills:0, deaths:0, assists:0, cs:0, dmg:0, games:0 };
+    const r = roleMap[role];
+    r.games++; p.win ? r.wins++ : r.losses++;
+    r.kills+=p.kills; r.deaths+=p.deaths; r.assists+=p.assists;
+    r.cs+=(p.totalMinionsKilled+p.neutralMinionsKilled);
+    r.dmg+=p.totalDamageDealtToChampions;
+  });
+
+  const roles = Object.entries(roleMap).sort((a,b)=>b[1].games-a[1].games);
+
+  // Chart
+  if (charts.roles) charts.roles.destroy();
+  charts.roles = new Chart(document.getElementById('chartRoles'), {
+    type: 'radar',
+    data: {
+      labels: roles.map(([r]) => ROLE_LABELS[r]||r),
+      datasets: [{
+        label: 'Winrate %',
+        data: roles.map(([,s]) => Math.round(s.wins/s.games*100)),
+        borderColor: 'rgba(200,155,60,.8)',
+        backgroundColor: 'rgba(200,155,60,.1)',
+        pointBackgroundColor: '#C89B3C',
+        pointRadius: 5,
+      },{
+        label: 'Parties',
+        data: roles.map(([,s]) => s.games * 5),
+        borderColor: 'rgba(0,200,255,.5)',
+        backgroundColor: 'rgba(0,200,255,.05)',
+        pointBackgroundColor: '#00C8FF',
+        pointRadius: 4,
+      }]
+    },
+    options: {
+      responsive: true,
+      scales: { r: { min:0, max:100, ticks:{display:false}, grid:{color:'rgba(200,155,60,.1)'}, pointLabels:{color:'rgba(200,155,60,.7)',font:{family:'Rajdhani',size:13}} }},
+      plugins: { legend: { labels: { color:'#C8AA6E', font:{family:'Rajdhani',size:12} }}}
+    }
+  });
+
+  // Role stats list
+  document.getElementById('role-stats').innerHTML = roles.map(([role, s]) => {
+    const wr = Math.round(s.wins/s.games*100);
+    const kda = s.deaths===0?'∞':((s.kills+s.assists)/s.deaths).toFixed(2);
+    const cls = wr>=55?'var(--green)':wr>=45?'var(--gold)':'var(--red)';
+    return `<div style="display:grid;grid-template-columns:60px 1fr auto auto auto;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid rgba(200,155,60,.07)">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:1rem;letter-spacing:2px;color:var(--blue-accent)">${ROLE_LABELS[role]||role}</div>
+      <div><div style="height:4px;background:rgba(255,255,255,.05);border-radius:2px"><div style="height:100%;border-radius:2px;background:${cls};width:${wr}%;transition:width .8s"></div></div></div>
+      <div style="color:${cls};font-weight:700;font-family:'Bebas Neue',sans-serif;font-size:1.1rem">${wr}%</div>
+      <div style="font-family:'Share Tech Mono',monospace;font-size:.75rem;color:rgba(200,155,60,.5)">${s.games}G</div>
+      <div style="font-family:'Share Tech Mono',monospace;font-size:.75rem;color:var(--gold)">${kda} KDA</div>
+    </div>`;
+  }).join('');
+
+  // Role detail
+  document.getElementById('role-detail').innerHTML = roles.map(([role, s]) => {
+    const wr = Math.round(s.wins/s.games*100);
+    const avgCs = Math.round(s.cs/s.games);
+    const avgDmg = Math.round(s.dmg/s.games/1000);
+    const kda = s.deaths===0?'∞':((s.kills+s.assists)/s.deaths).toFixed(2);
+    const tag = wr>=55?'<span style="color:var(--green);font-size:.65rem">✓ FORT</span>':wr<45?'<span style="color:var(--red);font-size:.65rem">⚠ FAIBLE</span>':'<span style="color:var(--gold);font-size:.65rem">→ NEUTRE</span>';
+    return `<div style="background:rgba(255,255,255,.02);border:1px solid rgba(200,155,60,.08);padding:12px 16px;margin-bottom:8px;display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:1.3rem;letter-spacing:3px;color:var(--blue-accent);min-width:50px">${ROLE_LABELS[role]||role}</div>
+      ${tag}
+      <div style="font-family:'Share Tech Mono',monospace;font-size:.75rem;color:rgba(200,155,60,.6)">${s.games} parties</div>
+      <div style="font-family:'Share Tech Mono',monospace;font-size:.75rem;color:rgba(200,155,60,.6)">WR: <span style="color:var(--gold)">${wr}%</span></div>
+      <div style="font-family:'Share Tech Mono',monospace;font-size:.75rem;color:rgba(200,155,60,.6)">KDA: <span style="color:var(--gold)">${kda}</span></div>
+      <div style="font-family:'Share Tech Mono',monospace;font-size:.75rem;color:rgba(200,155,60,.6)">CS/g: <span style="color:var(--gold)">${avgCs}</span></div>
+      <div style="font-family:'Share Tech Mono',monospace;font-size:.75rem;color:rgba(200,155,60,.6)">DMG/g: <span style="color:var(--gold)">${avgDmg}k</span></div>
+    </div>`;
+  }).join('');
+}
+
+// ── TIMING TAB ────────────────────────────────────────────────────────
+function renderTiming() {
+  if (!globalMatchData) return;
+  const { matches, puuid } = globalMatchData;
+
+  let earlyDeaths=0, midDeaths=0, lateDeaths=0;
+  let earlyKills=0, midKills=0, lateKills=0;
+  let fbCount=0, totalGames=0;
+  let totalDur=0, totalCs=0, totalKda=0, totalDmg=0, totalVis=0;
+  let winStreak=0, lossStreak=0, curStreak=0, lastWon=null;
+  const durationList = [];
+
+  matches.forEach(m => {
+    const p = m.info.participants.find(x => x.puuid === puuid);
+    if (!p) return;
+    totalGames++;
+    const dur = m.info.gameDuration / 60;
+    totalDur += dur;
+    totalCs += (p.totalMinionsKilled+p.neutralMinionsKilled);
+    totalDmg += p.totalDamageDealtToChampions/1000;
+    totalVis += (p.visionScore||0);
+    const kda = p.deaths===0?3:((p.kills+p.assists)/p.deaths);
+    totalKda += kda;
+    durationList.push({ dur, won: p.win });
+
+    if (p.firstBloodKill || p.firstBloodAssist) fbCount++;
+
+    // Estimate death timing by game phase
+    const deathRate = p.deaths / dur;
+    if (dur < 15) { earlyDeaths += p.deaths; earlyKills += p.kills; }
+    else if (dur < 25) { midDeaths += p.deaths; midKills += p.kills; }
+    else { lateDeaths += p.deaths; lateKills += p.kills; }
+
+    // Streak
+    if (lastWon === null) { lastWon = p.win; curStreak = 1; }
+    else if (p.win === lastWon) curStreak++;
+    else { 
+      if (lastWon) winStreak = Math.max(winStreak, curStreak);
+      else lossStreak = Math.max(lossStreak, curStreak);
+      lastWon = p.win; curStreak = 1;
+    }
+  });
+
+  const avgDur = (totalDur/totalGames).toFixed(1);
+  const avgCs = (totalCs/totalGames).toFixed(0);
+  const avgCsMin = (totalCs/totalDur).toFixed(1);
+  const avgKda = (totalKda/totalGames).toFixed(2);
+  const avgDmg = (totalDmg/totalGames).toFixed(1);
+  const avgVis = (totalVis/totalGames).toFixed(0);
+  const fbRate = Math.round(fbCount/totalGames*100);
+
+  // Death timing chart
+  if (charts.deathTiming) charts.deathTiming.destroy();
+  charts.deathTiming = new Chart(document.getElementById('chartDeathTiming'), {
+    type: 'bar',
+    data: {
+      labels: ['Early (0-15)', 'Mid (15-25)', 'Late (25+)'],
+      datasets: [
+        { label: 'Morts', data: [earlyDeaths, midDeaths, lateDeaths], backgroundColor: ['rgba(232,64,87,.7)','rgba(232,64,87,.5)','rgba(232,64,87,.35)'], borderColor: 'var(--red)', borderWidth: 1 },
+        { label: 'Kills', data: [earlyKills, midKills, lateKills], backgroundColor: ['rgba(61,202,110,.7)','rgba(61,202,110,.5)','rgba(61,202,110,.35)'], borderColor: 'var(--green)', borderWidth: 1 },
+      ]
+    },
+    options: { responsive: true, plugins:{legend:{labels:{color:'#C8AA6E',font:{family:'Rajdhani',size:12}}}}, scales:{x:{ticks:{color:'rgba(200,155,60,.6)'},grid:{color:'rgba(200,155,60,.05)'}},y:{ticks:{color:'rgba(200,155,60,.4)'},grid:{color:'rgba(200,155,60,.05)'}}}}
+  });
+
+  // Objectives chart (win timing)
+  const durBuckets = {'<20min':[0,0],'20-25min':[0,0],'25-30min':[0,0],'30-35min':[0,0],'>35min':[0,0]};
+  durationList.forEach(({dur,won}) => {
+    const k = dur<20?'<20min':dur<25?'20-25min':dur<30?'25-30min':dur<35?'30-35min':'>35min';
+    durBuckets[k][0]++; if(won) durBuckets[k][1]++;
+  });
+  const durLabels = Object.keys(durBuckets);
+  const durWR = durLabels.map(k => durBuckets[k][0]>0?Math.round(durBuckets[k][1]/durBuckets[k][0]*100):0);
+  const durGames = durLabels.map(k => durBuckets[k][0]);
+
+  if (charts.objTiming) charts.objTiming.destroy();
+  charts.objTiming = new Chart(document.getElementById('chartObjTiming'), {
+    type: 'bar',
+    data: {
+      labels: durLabels,
+      datasets: [
+        { label: 'Winrate %', data: durWR, backgroundColor: durWR.map(v=>v>=50?'rgba(61,202,110,.7)':'rgba(232,64,87,.6)'), borderWidth: 1 },
+        { label: 'Parties', data: durGames, backgroundColor: 'rgba(0,200,255,.2)', borderColor: 'rgba(0,200,255,.4)', borderWidth: 1, yAxisID: 'y2' }
+      ]
+    },
+    options: { responsive:true, plugins:{legend:{labels:{color:'#C8AA6E',font:{family:'Rajdhani',size:12}}}}, scales:{x:{ticks:{color:'rgba(200,155,60,.6)'},grid:{color:'rgba(200,155,60,.05)'}},y:{min:0,max:100,ticks:{color:'rgba(200,155,60,.4)',callback:v=>v+'%'},grid:{color:'rgba(200,155,60,.05)'}},y2:{position:'right',ticks:{color:'rgba(0,200,255,.4)'},grid:{display:false}}}}
+  });
+
+  // Timing stats
+  const statCell = (label, val, bench, unit='', invert=false) => {
+    const numVal = parseFloat(val);
+    const isGood = invert ? numVal <= bench : numVal >= bench;
+    const diff = (numVal - bench).toFixed(1);
+    const diffStr = diff > 0 ? '+'+diff : diff;
+    const color = isGood ? 'var(--green)' : 'var(--red)';
+    return `<div style="background:rgba(255,255,255,.02);border:1px solid rgba(200,155,60,.08);padding:12px;text-align:center">
+      <div style="font-size:.65rem;letter-spacing:2px;color:rgba(200,155,60,.5);font-family:'Share Tech Mono',monospace;margin-bottom:4px">${label}</div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:1.6rem;color:var(--gold-light)">${val}${unit}</div>
+      <div style="font-size:.65rem;color:${color};font-family:'Share Tech Mono',monospace">vs Gold IV: ${bench}${unit} <span style="color:${color}">(${diffStr})</span></div>
+    </div>`;
+  };
+
+  document.getElementById('timing-fb').innerHTML = `
+    <div style="text-align:center;padding:16px">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:2.5rem;color:${fbRate>=20?'var(--green)':'var(--gold)'}">${fbRate}%</div>
+      <div style="font-size:.75rem;color:rgba(200,155,60,.5);font-family:'Share Tech Mono',monospace">des parties</div>
+      <div style="font-size:.7rem;color:rgba(200,155,60,.35);margin-top:6px;font-family:'Share Tech Mono',monospace">${fbCount} first blood sur ${totalGames} games</div>
+      <div style="font-size:.68rem;color:${fbRate>=ELO_BENCH.fbRate?'var(--green)':'var(--red)'};margin-top:4px;font-family:'Share Tech Mono',monospace">Gold IV moy: ${ELO_BENCH.fbRate}%</div>
+    </div>`;
+
+  document.getElementById('timing-dur').innerHTML = `
+    <div style="text-align:center;padding:16px">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:2.5rem;color:var(--gold)">${avgDur}<span style="font-size:1rem">min</span></div>
+      <div style="font-size:.75rem;color:rgba(200,155,60,.5);font-family:'Share Tech Mono',monospace">durée moyenne</div>
+      <div style="font-size:.68rem;color:rgba(200,155,60,.35);margin-top:6px;font-family:'Share Tech Mono',monospace">Gold IV moy: ${ELO_BENCH.avgDur}min</div>
+      <div style="font-size:.72rem;margin-top:8px;color:${avgDur<25?'var(--green)':avgDur>32?'var(--red)':'var(--gold)'};font-family:'Share Tech Mono',monospace">
+        ${avgDur<25?'✓ Games courtes — bon signe':'→ Games longues — focus closing'}
+      </div>
+    </div>`;
+
+  document.getElementById('timing-momentum').innerHTML = `
+    <div style="padding:10px">
+      <div style="display:flex;justify-content:space-around;margin-bottom:12px">
+        <div style="text-align:center">
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:1.8rem;color:var(--green)">${winStreak}</div>
+          <div style="font-size:.65rem;color:rgba(200,155,60,.4);font-family:'Share Tech Mono',monospace">MAX WIN STREAK</div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:1.8rem;color:var(--red)">${lossStreak}</div>
+          <div style="font-size:.65rem;color:rgba(200,155,60,.4);font-family:'Share Tech Mono',monospace">MAX LOSS STREAK</div>
+        </div>
+      </div>
+    </div>`;
+
+  // ELO comparison
+  document.getElementById('elo-compare').innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:8px">
+      ${statCell('CS/MIN', avgCsMin, ELO_BENCH.csPerMin)}
+      ${statCell('KDA MOY.', avgKda, ELO_BENCH.kda)}
+      ${statCell('VISION', avgVis, ELO_BENCH.visionScore, '')}
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+      ${statCell('DMG/G (k)', avgDmg, ELO_BENCH.dmgK)}
+      ${statCell('FIRST BLOOD', fbRate, ELO_BENCH.fbRate, '%')}
+      ${statCell('DUR. MOY.', avgDur, ELO_BENCH.avgDur, 'min', true)}
+    </div>
+    <div style="margin-top:10px;font-size:.65rem;color:rgba(200,155,60,.3);font-family:'Share Tech Mono',monospace;text-align:center">* Benchmarks basés sur la moyenne estimée Gold IV serveur VN</div>`;
+}
+
+// ── WEEKLY GOALS ──────────────────────────────────────────────────────
+async function generateGoals() {
+  if (!globalMatchData) return;
+  const panel = document.getElementById('goals-panel');
+  panel.innerHTML = `<div style="text-align:center;padding:40px">
+    <div class="loader-ring" style="margin:0 auto 16px"></div>
+    <div style="font-family:'Share Tech Mono',monospace;font-size:.85rem;color:var(--gold);letter-spacing:2px">GÉNÉRATION DES OBJECTIFS...</div>
+  </div>`;
+
+  const { matches, puuid, soloQ, account } = globalMatchData;
+  let totalW=0,totalL=0,totalK=0,totalD=0,totalA=0,totalCs=0,totalDur=0,totalVis=0,totalDmg=0;
+  const champGames = {};
+
+  matches.forEach(m => {
+    const p = m.info.participants.find(x=>x.puuid===puuid);
+    if (!p) return;
+    p.win?totalW++:totalL++;
+    totalK+=p.kills;totalD+=p.deaths;totalA+=p.assists;
+    totalCs+=(p.totalMinionsKilled+p.neutralMinionsKilled);
+    totalDur+=m.info.gameDuration/60;
+    totalVis+=(p.visionScore||0);
+    totalDmg+=p.totalDamageDealtToChampions/1000;
+    const c=p.championName;
+    if(!champGames[c]) champGames[c]={w:0,l:0};
+    p.win?champGames[c].w++:champGames[c].l++;
+  });
+
+  const n = matches.length || 1;
+  const stats = {
+    wr: Math.round(totalW/(totalW+totalL)*100),
+    kda: (totalD===0?99:((totalK+totalA)/totalD)).toFixed(2),
+    csMin: (totalCs/totalDur).toFixed(1),
+    vis: (totalVis/n).toFixed(0),
+    dmg: (totalDmg/n).toFixed(1),
+    rank: soloQ ? soloQ.tier+' '+soloQ.rank+' '+soloQ.leaguePoints+'LP' : 'Unranked',
+    topChamp: Object.entries(champGames).sort((a,b)=>(b[1].w+b[1].l)-(a[1].w+a[1].l))[0]?.[0] || '?'
+  };
+
+  const prompt = 'Tu es un coach LoL. Génère 5 objectifs hebdomadaires SMART et concrets pour ce joueur en FRANÇAIS. Réponds UNIQUEMENT en JSON valide avec ce format exact: {"objectifs":[{"titre":"...","description":"...","metrique":"...","target":"...","priorite":"haute|moyenne|faible"}]}\n\nSTATS:\nRank: '+stats.rank+'\nWR: '+stats.wr+'%\nKDA: '+stats.kda+'\nCS/min: '+stats.csMin+' (Gold IV moy: 6.2)\nVision: '+stats.vis+' (Gold IV moy: 22)\nDMG/g: '+stats.dmg+'k\nChamp principal: '+stats.topChamp+'\nBenchmarks Gold IV VN - CS/min:6.2 KDA:2.1 Vision:22';
+
+  let groqKey = localStorage.getItem('lol_scout_groq_key') || '';
+  if (!groqKey) {
+    groqKey = window.prompt('Clé Groq (gsk_...) — gratuit sur console.groq.com');
+    if (!groqKey) { panel.innerHTML='<div style="text-align:center;padding:40px;color:rgba(200,155,60,.3);font-family:Share Tech Mono,monospace">Clé Groq requise</div>'; return; }
+    localStorage.setItem('lol_scout_groq_key', groqKey);
+  }
+
+  try {
+    const res = await fetch(PROXY_URL+'/groq', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ apiKey: groqKey, messages: [{role:'user',content:prompt}] })
+    });
+    const data = await res.json();
+    const text = data.choices?.[0]?.message?.content || '';
+    const clean = text.replace(/```json|```/g,'').trim();
+    const parsed = JSON.parse(clean);
+    
+    const prioColor = {'haute':'var(--red)','moyenne':'var(--gold)','faible':'var(--blue-accent)'};
+    const prioLabel = {'haute':'URGENT','moyenne':'CETTE SEMAINE','faible':'BONUS'};
+    
+    panel.innerHTML = `
+      <div style="margin-bottom:20px">
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:3px;color:var(--gold);margin-bottom:4px">🎯 TES OBJECTIFS DE LA SEMAINE</div>
+        <div style="font-size:.75rem;color:rgba(200,155,60,.4);font-family:'Share Tech Mono',monospace">Basés sur tes ${n} dernières parties · ${stats.rank}</div>
+      </div>
+      ${parsed.objectifs.map((obj, i) => `
+        <div style="background:rgba(255,255,255,.02);border:1px solid rgba(200,155,60,.1);border-left:3px solid ${prioColor[obj.priorite]||'var(--gold)'};padding:16px 20px;margin-bottom:10px;animation:fadeUp .4s ease both;animation-delay:${i*0.1}s">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:1.05rem;letter-spacing:2px;color:var(--gold-light)">${obj.titre}</div>
+            <span style="font-size:.6rem;font-family:'Share Tech Mono',monospace;padding:2px 8px;border:1px solid ${prioColor[obj.priorite]||'var(--gold)'};color:${prioColor[obj.priorite]||'var(--gold)'}">${prioLabel[obj.priorite]||''}</span>
+          </div>
+          <div style="font-size:.85rem;color:rgba(240,230,211,.7);line-height:1.6;margin-bottom:8px">${obj.description}</div>
+          <div style="display:flex;gap:16px;font-family:'Share Tech Mono',monospace;font-size:.72rem">
+            <span style="color:rgba(200,155,60,.5)">📊 ${obj.metrique}</span>
+            <span style="color:var(--blue-accent)">🎯 Objectif: ${obj.target}</span>
+          </div>
+        </div>
+      `).join('')}
+      <div style="text-align:center;margin-top:12px">
+        <button onclick="generateGoals()" style="background:transparent;border:1px solid var(--border);color:var(--gold);font-family:'Bebas Neue',sans-serif;font-size:.85rem;letter-spacing:2px;padding:8px 20px;cursor:pointer">🔄 REGÉNÉRER</button>
+      </div>`;
+  } catch(e) {
+    panel.innerHTML = `<div style="color:var(--red);font-family:'Share Tech Mono',monospace;font-size:.85rem;padding:20px;text-align:center">Erreur: ${e.message}<br><br>Clique "Générer" pour réessayer</div>`;
+  }
+}
+
+// ── HELPERS ──────────────────────────────────────────────────────────
+function ripple(e) {
+  const btn = e.currentTarget;
+  const r = document.createElement('span');
+  r.className = 'ripple-fx';
+  const d = Math.max(btn.clientWidth, btn.clientHeight);
+  const rect = btn.getBoundingClientRect();
+  r.style.cssText = 'width:'+d+'px;height:'+d+'px;left:'+(e.clientX-rect.left-d/2)+'px;top:'+(e.clientY-rect.top-d/2)+'px';
+  btn.style.position = 'relative';
+  btn.style.overflow = 'hidden';
+  btn.appendChild(r);
+  setTimeout(() => r.remove(), 500);
+}
+
+function animateNumber(el, target, duration=1000) {
+  const start = parseInt(el.textContent) || 0;
+  const diff = target - start;
+  const startTime = performance.now();
+  const update = (now) => {
+    const elapsed = now - startTime;
+    const progress = Math.min(elapsed/duration, 1);
+    const ease = 1 - Math.pow(1-progress, 3);
+    el.textContent = Math.round(start + diff*ease);
+    if (progress < 1) requestAnimationFrame(update);
+  };
+  requestAnimationFrame(update);
+}
+function setLoading(show, text='CHARGEMENT...') {
+  document.getElementById('loading').style.display = show ? 'flex' : 'none';
+  document.getElementById('loading-text').textContent = text;
+}
+function showError(msg) {
+  const el=document.getElementById('error-box');
+  el.style.display=msg?'block':'none';
+  el.textContent=msg;
+}
+function destroyCharts() {
+  Object.values(charts).forEach(c=>c.destroy());
+  charts={};
+}
+</script>
+</body>
+</html>
