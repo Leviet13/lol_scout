@@ -2094,7 +2094,22 @@ async function loadLiveGame() {
     </div>`;
 
   try {
-    const game = await riotFetch(`https://${routing.platform}.api.riotgames.com/lol/spectator/v5/active-games/by-summoner/${puuid}`).catch(() => riotFetch(`https://${routing.platform}.api.riotgames.com/lol/spectator/v5/active-games/by-puuid/${puuid}`));
+    // Try spectator v5 with puuid (new endpoint)
+    let game = null;
+    try {
+      game = await riotFetch(`https://${routing.platform}.api.riotgames.com/lol/spectator/v5/active-games/by-summoner/${puuid}`);
+    } catch(e1) {
+      try {
+        // Fallback: v4 with summoner ID
+        const summonerData = globalMatchData?.summoner;
+        if (summonerData?.id) {
+          game = await riotFetch(`https://${routing.platform}.api.riotgames.com/lol/spectator/v4/active-games/by-summoner/${summonerData.id}`);
+        }
+      } catch(e2) {
+        throw new Error('Pas de partie active détectée');
+      }
+    }
+    if (!game) throw new Error('Pas de partie active');
 
     // En game !
     const me = game.participants.find(p => p.puuid === puuid);
