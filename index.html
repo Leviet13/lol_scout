@@ -446,19 +446,19 @@ canvas { max-height:250px; }
 #error-box { display:none; background:rgba(195,75,75,.1); border:1px solid rgba(195,75,75,.4); color:#e88; padding:16px 24px; margin:20px auto; max-width:620px; font-family:‘Share Tech Mono’,monospace; font-size:.85rem; text-align:center; position:relative; z-index:10; }
 
 /* MODAL */
-#api-modal { position:fixed; inset:0; background:rgba(0,5,15,.95); z-index:100; display:flex; align-items:center; justify-content:center; padding:20px; }
-.modal-box { background:var(–blue-dark); border:1px solid var(–border); padding:40px; max-width:560px; width:100%; position:relative; }
-.modal-box::before { content:’’; position:absolute; top:0; left:0; right:0; height:2px; background:linear-gradient(90deg,var(–gold-dark),var(–gold),var(–blue-accent),var(–gold)); }
-.modal-box h2 { font-family:‘Bebas Neue’,sans-serif; font-size:1.8rem; letter-spacing:3px; color:var(–gold); margin-bottom:8px; }
+#api-modal { position:fixed; inset:0; background:rgba(0,5,15,.97); z-index:100; display:flex; align-items:center; justify-content:center; padding:20px; backdrop-filter:blur(4px); }
+.modal-box { background:#080E1A; border:1px solid rgba(200,155,60,.3); padding:40px; max-width:560px; width:100%; position:relative; box-shadow:0 24px 60px rgba(0,0,0,.8); }
+.modal-box::before { content:’’; position:absolute; top:0; left:0; right:0; height:2px; background:linear-gradient(90deg,#785A28,#C89B3C,#00C8FF,#C89B3C); }
+.modal-box h2 { font-family:‘Bebas Neue’,sans-serif; font-size:1.8rem; letter-spacing:3px; color:#C89B3C; margin-bottom:8px; }
 .modal-box p { color:rgba(200,170,110,.7); font-size:.9rem; line-height:1.6; margin-bottom:20px; }
 .modal-box ol { color:rgba(200,170,110,.8); font-size:.85rem; margin-left:20px; margin-bottom:24px; line-height:2; }
-.modal-box a { color:var(–blue-accent); }
-.modal-input { width:100%; background:var(–blue-deep); border:1px solid var(–border); color:var(–gold-light); font-family:‘Share Tech Mono’,monospace; font-size:.85rem; padding:12px 16px; outline:none; margin-bottom:12px; letter-spacing:1px; }
-.modal-input:focus { border-color:var(–gold); }
-.modal-btn { width:100%; background:linear-gradient(135deg,var(–gold-dark),var(–gold)); border:none; color:var(–blue-deep); font-family:‘Bebas Neue’,sans-serif; font-size:1.1rem; letter-spacing:3px; padding:14px; cursor:pointer; transition:all .2s; }
-.modal-btn:hover { filter:brightness(1.1); }
-.demo-btn { width:100%; background:transparent; border:1px solid var(–border); color:var(–gold); font-family:‘Bebas Neue’,sans-serif; font-size:1rem; letter-spacing:3px; padding:12px; cursor:pointer; margin-top:10px; transition:all .2s; }
-.demo-btn:hover { border-color:var(–gold); }
+.modal-box a { color:#00C8FF; }
+.modal-input { width:100%; background:#05080F; border:1px solid rgba(200,155,60,.25); color:#F0E6D3; font-family:‘Share Tech Mono’,monospace; font-size:.85rem; padding:12px 16px; outline:none; margin-bottom:12px; letter-spacing:1px; }
+.modal-input:focus { border-color:#C89B3C; }
+.modal-btn { width:100%; background:linear-gradient(135deg,#785A28,#C89B3C); border:none; color:#05080F; font-family:‘Bebas Neue’,sans-serif; font-size:1.1rem; letter-spacing:3px; padding:14px; cursor:pointer; transition:all .2s; font-weight:900; }
+.modal-btn:hover { filter:brightness(1.15); box-shadow:0 0 20px rgba(200,155,60,.3); }
+.demo-btn { width:100%; background:transparent; border:1px solid rgba(200,155,60,.3); color:#C89B3C; font-family:‘Bebas Neue’,sans-serif; font-size:1rem; letter-spacing:3px; padding:12px; cursor:pointer; margin-top:10px; transition:all .2s; }
+.demo-btn:hover { border-color:#C89B3C; background:rgba(200,155,60,.05); }
 .modal-note { margin-top:16px; font-size:.72rem; color:rgba(200,170,110,.35); font-family:‘Share Tech Mono’,monospace; text-align:center; }
 
 /* ── MOBILE RESPONSIVE ── */
